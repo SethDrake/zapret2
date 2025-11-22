@@ -83,10 +83,10 @@ function pktdebug(ctx, desync)
 end
 
 -- drop packet
--- standard args : direction
+-- standard args : direction, payload
 function drop(ctx, desync)
 	direction_cutoff_opposite(ctx, desync, "any")
-	if direction_check(desync, "any") then
+	if direction_check(desync, "any") and payload_check(desync,"all") then
 		DLOG("drop")
 		return VERDICT_DROP
 	end

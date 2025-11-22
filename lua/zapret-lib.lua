@@ -762,20 +762,19 @@ function direction_cutoff_opposite(ctx, desync, def)
 	end
 end
 -- check if desync payload type comply with payload type list in arg.payload
--- if arg.payload is not present - check if desync payload is not "empty" and not "unknown" (nfqws1 behavior without "--desync-any-protocol" option)
-function payload_check(desync)
-	if desync.arg.payload and desync.arg.payload~="known" then
-		if not in_list(desync.arg.payload, "all") and not in_list(desync.arg.payload, desync.l7payload) then
-			DLOG("payload_check: payload '"..desync.l7payload.."' does not pass '"..desync.arg.payload.."' filter")
-			return false
-		end
-	else
-		if desync.l7payload=="empty" or desync.l7payload=="unknown" then
-			DLOG("payload_check: payload filter accepts only known protocols")
-			return false
-		end
+-- if arg.payload is not present - check for known payload - not empty and not unknown (nfqws1 behavior without "--desync-any-protocol" option)
+-- if arg.payload is prefixed with '~' - it means negation
+function payload_check(desync, def)
+	local b
+	local argpl = desync.arg.payload or def or "known"
+	local neg = string.sub(argpl,1,1)=="~"
+	local pl = neg and string.sub(argpl,2) or argpl
+
+	b = neg ~= (in_list(pl, "all") or in_list(pl, desync.l7payload) or in_list(pl, "known") and desync.l7payload~="unknown" and desync.l7payload~="empty")
+	if not b then
+		DLOG("payload_check: payload '"..desync.l7payload.."' does not pass '"..argpl.."' filter")
 	end
-	return true
+	return b
 end
 
 -- return name of replay drop field in track.lua_state for the current desync function instance
@@ -978,3 +977,4 @@ function ipfrag2(dis, ipfrag_options)
 
 	return {dis1,dis2}
 end
+

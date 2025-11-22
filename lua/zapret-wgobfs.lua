@@ -53,7 +53,7 @@ function wgobfs(ctx, desync)
 		DLOG("wgobfs: encrypting '"..desync.l7payload.."'. size "..#desync.dis.payload)
 		local key = genkey()
 		-- in aes-gcm every message require it's own crypto secure random iv
-		-- encryption more than one message with the same iv is considered catastrophic failure
+		-- encrypting more than one message with the same iv is considered catastrophic failure
 		-- iv must be sent with encrypted message
 		local iv = bcryptorandom(12)
 		local encrypted, atag = aes_gcm(true, key, iv, bu16(#desync.dis.payload)..desync.dis.payload..brandom(math.random(padmin,padmax)), nil)
