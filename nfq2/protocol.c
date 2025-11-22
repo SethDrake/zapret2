@@ -720,7 +720,7 @@ bool TLSMod(const struct fake_tls_mod *tls_mod, const uint8_t *payload, size_t p
 			DLOG_ERR("cannot apply tls mod.tls structure invalid\n");
 			return false;
 		}
-		DLOG_ERR("tls extensions length offset : %zu\n", extlen_offset);
+		DLOG("tls extensions length offset : %zu\n", extlen_offset);
 	}
 	if (tls_mod->mod & (FAKE_TLS_MOD_RND_SNI | FAKE_TLS_MOD_SNI))
 	{
