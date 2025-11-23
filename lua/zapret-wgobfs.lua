@@ -13,9 +13,7 @@ function wgobfs(ctx, desync)
 	local function genkey()
 		-- cache key in a global var bound to instance name
 		local key_cache_name = desync.func_instance.."_key"
-		if _G[key_cache_name] then
-			key = _G[key_cache_name]
-		end
+		key = _G[key_cache_name]
 		if not key then
 			key = hkdf("sha256", "wgobfs_salt", desync.arg.secret, nil, 16)
 			_G[key_cache_name] = key
