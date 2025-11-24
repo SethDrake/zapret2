@@ -620,7 +620,7 @@ BOOL LowMandatoryLevel(void)
 	return bRes;
 }
 
-BOOL SetMandatoryLabelFile(LPCSTR lpFileName, DWORD dwMandatoryLabelRID)
+BOOL SetMandatoryLabelFile(LPCSTR lpFileName, DWORD dwMandatoryLabelRID, DWORD dwAceFlags)
 {
 	BOOL bRes=FALSE;
 	DWORD dwErr, dwFileAttributes;
@@ -647,7 +647,7 @@ BOOL SetMandatoryLabelFile(LPCSTR lpFileName, DWORD dwMandatoryLabelRID)
 
 	InitializeSid(label, &label_authority, 1);
 	*GetSidSubAuthority(label, 0) = dwMandatoryLabelRID;
-	if (InitializeAcl(pacl, sizeof(buf_pacl), ACL_REVISION) && AddMandatoryAce(pacl, (dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? ACL_REVISION_DS : ACL_REVISION, 0, SYSTEM_MANDATORY_LABEL_NO_WRITE_UP, label))
+	if (InitializeAcl(pacl, sizeof(buf_pacl), ACL_REVISION) && AddMandatoryAce(pacl, (dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? ACL_REVISION_DS : ACL_REVISION, dwAceFlags, SYSTEM_MANDATORY_LABEL_NO_WRITE_UP, label))
 	{
 		dwErr = SetNamedSecurityInfoW(lpFileNameW, SE_FILE_OBJECT, LABEL_SECURITY_INFORMATION, NULL, NULL, NULL, pacl);
 		SetLastError(dwErr);
@@ -659,12 +659,40 @@ err:
 	return bRes;
 }
 
-bool ensure_file_access(const char *filename)
+BOOL SetMandatoryLabelFileW(LPCWSTR lpFileNameW, DWORD dwMandatoryLabelRID, DWORD dwAceFlags)
 {
-	return SetMandatoryLabelFile(filename, SECURITY_MANDATORY_LOW_RID);
+	BOOL bRes=FALSE;
+	DWORD dwErr, dwFileAttributes;
+	char buf_label[16], buf_pacl[32];
+	PSID label = (PSID)buf_label;
+	PACL pacl = (PACL)buf_pacl;
+
+	if (!wcsncmp(lpFileNameW,L"\\\\.\\",4))
+		dwFileAttributes = 0;
+	else
+	{
+		dwFileAttributes = GetFileAttributesW(lpFileNameW);
+		if (dwFileAttributes == INVALID_FILE_ATTRIBUTES) goto err;
+	}
+
+	InitializeSid(label, &label_authority, 1);
+	*GetSidSubAuthority(label, 0) = dwMandatoryLabelRID;
+	if (InitializeAcl(pacl, sizeof(buf_pacl), ACL_REVISION) && AddMandatoryAce(pacl, (dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? ACL_REVISION_DS : ACL_REVISION, dwAceFlags, SYSTEM_MANDATORY_LABEL_NO_WRITE_UP, label))
+	{
+		dwErr = SetNamedSecurityInfoW((LPWSTR)lpFileNameW, SE_FILE_OBJECT, LABEL_SECURITY_INFORMATION, NULL, NULL, NULL, pacl);
+		SetLastError(dwErr);
+		bRes = dwErr==ERROR_SUCCESS;
+	}
+err:
+	if (!bRes) w_win32_error = GetLastError();
+	return bRes;
 }
 
-static bool set_low_appdata_env()
+bool ensure_file_access(const char *filename)
+{
+	return SetMandatoryLabelFile(filename, SECURITY_MANDATORY_LOW_RID, 0);
+}
+static bool prepare_low_appdata()
 {
 	bool b = false;
 	PWSTR pszPath = NULL;
@@ -682,6 +710,17 @@ static bool set_low_appdata_env()
 				memcpy(buf+l-1,"/zapret2",9);
 				setenv("WRITEABLE", buf, 1);
 				mkdir(buf,0755);
+
+				l = wcslen(pszPath);
+				PWSTR pszPath2 = malloc((l+9)*sizeof(WCHAR));
+				if (pszPath2)
+				{
+					memcpy(pszPath2,pszPath,l*sizeof(WCHAR));
+					memcpy(pszPath2+l,L"\\zapret2",9*sizeof(WCHAR));
+					// ensure it's low and everything created inside is also low
+					SetMandatoryLabelFileW(pszPath2, SECURITY_MANDATORY_LOW_RID, OBJECT_INHERIT_ACE | CONTAINER_INHERIT_ACE);
+					free(pszPath2);
+				}
 			}
 			free(buf);
 		}
@@ -694,6 +733,7 @@ static bool set_low_appdata_env()
 static bool b_isandbox_set = false;
 bool win_sandbox(void)
 {
+
 	if (!RemoveTokenPrivs())
 		return FALSE;
 
@@ -701,12 +741,12 @@ bool win_sandbox(void)
 	if (!b_isandbox_set)
 	{
 		// set low mandatory label on windivert device to allow administrators with low label access the driver
-		if (logical_net_filter_present() && !SetMandatoryLabelFile("\\\\.\\" WINDIVERT_DEVICE_NAME, SECURITY_MANDATORY_LOW_RID))
+		if (logical_net_filter_present() && !SetMandatoryLabelFile("\\\\.\\" WINDIVERT_DEVICE_NAME, SECURITY_MANDATORY_LOW_RID, 0))
 			return FALSE;
+		prepare_low_appdata();
 		if (!LowMandatoryLevel())
 			return false;
 		// for LUA code to find where to store files
-		set_low_appdata_env();
 		b_isandbox_set = true;
 	}
 	return true;

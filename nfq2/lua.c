@@ -2398,13 +2398,16 @@ static void lua_sec_harden(void)
 			{
 				lua_getfield(params.L, -1, bad[i].field);
 				lua_pushstring(params.L, bad[i].field2);
+				DLOG(" %s.%s.%s", bad[i].global, bad[i].field, bad[i].field2);
 			}
 			else
+			{
 				lua_pushstring(params.L, bad[i].field);
+				DLOG(" %s.%s", bad[i].global, bad[i].field);
+			}
 			lua_pushnil(params.L);
 			lua_rawset(params.L, -3);
 			lua_pop(params.L,1 + !!bad[i].field2);
-			DLOG(" %s.%s", bad[i].global, bad[i].field);
 		}
 		else
 		{
