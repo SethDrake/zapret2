@@ -685,20 +685,36 @@ BOOL SetMandatoryLabelFile(LPCSTR lpFileName, DWORD dwMandatoryLabelRID)
 	char buf_label[16], buf_pacl[32];
 	PSID label = (PSID)buf_label;
 	PACL pacl = (PACL)buf_pacl;
+	LPWSTR lpFileNameW;
+	size_t szFileName;
 
-	dwFileAttributes = GetFileAttributesA(lpFileName);
-	if (dwFileAttributes == INVALID_FILE_ATTRIBUTES)
+	szFileName = strlen(lpFileName);
+	if (!(lpFileNameW = (LPWSTR)LocalAlloc(LMEM_FIXED,(szFileName+1)*sizeof(WCHAR))))
 		return FALSE;
+
+	if (!MultiByteToWideChar(CP_UTF8, 0, lpFileName, -1, lpFileNameW, szFileName))
+	{
+		LocalFree(lpFileNameW);
+		return FALSE;
+	}
+
+	dwFileAttributes = GetFileAttributesW(lpFileNameW);
+	if (dwFileAttributes == INVALID_FILE_ATTRIBUTES)
+	{
+		LocalFree(lpFileNameW);
+		return FALSE;
+	}
 
 	InitializeSid(label, &label_authority, 1);
 	*GetSidSubAuthority(label, 0) = dwMandatoryLabelRID;
 	if (InitializeAcl(pacl, sizeof(buf_pacl), ACL_REVISION) && AddMandatoryAce(pacl, (dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? ACL_REVISION_DS : ACL_REVISION, 0, SYSTEM_MANDATORY_LABEL_NO_WRITE_UP, label))
 	{
-		dwErr = SetNamedSecurityInfoA((LPSTR)lpFileName, SE_FILE_OBJECT, LABEL_SECURITY_INFORMATION, NULL, NULL, NULL, pacl);
+		dwErr = SetNamedSecurityInfoW(lpFileNameW, SE_FILE_OBJECT, LABEL_SECURITY_INFORMATION, NULL, NULL, NULL, pacl);
 		SetLastError(dwErr);
 		bRes = dwErr==ERROR_SUCCESS;
 	}
 	if (!bRes) w_win32_error = GetLastError();
+	LocalFree(lpFileNameW);
 	return bRes;
 }
 
