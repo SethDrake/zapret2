@@ -4,9 +4,10 @@
 #include <unistd.h>
 #ifdef __FreeBSD__
 #include <sys/thr.h>
-#endif
-#ifdef __linux__
+#elif defined(__linux__)
 #include <sys/syscall.h>
+#elif defined(__CYGWIN__)
+#include <processthreadsapi.h>
 #endif
 
 #include "lua.h"
@@ -565,7 +566,7 @@ static int luacall_gettid(lua_State *L)
 	lua_check_argc(L,"gettid", 0);
 #ifdef __OpenBSD__
 	lua_pushinteger(L, getthrid());
-#elif defined( __FreeBSD__)
+#elif defined(__FreeBSD__)
 	long tid;
 	if (thr_self(&tid))
 		lua_pushnil(L);
@@ -573,6 +574,8 @@ static int luacall_gettid(lua_State *L)
 		lua_pushinteger(L, tid);
 #elif defined(__linux__)
 	lua_pushinteger(L, syscall(SYS_gettid));
+#elif defined(__CYGWIN__)
+	lua_pushinteger(L, GetCurrentThreadId());
 #else
 	// unsupported OS ?
 	lua_pushnil(L);
