@@ -82,6 +82,7 @@ typedef struct {
 	const char *func, *instance;
 	const struct desync_profile *dp;
 	const t_ctrack *ctrack;
+	const struct dissect *dis;
 } t_lua_desync_context;
 
 bool lua_instance_cutoff_check(const t_lua_desync_context *ctx, bool bIn);

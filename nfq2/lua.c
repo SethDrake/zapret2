@@ -1,5 +1,6 @@
 #include <time.h>
 #include <fcntl.h>
+#include <sys/utsname.h>
 
 #include "lua.h"
 #include "params.h"
@@ -526,6 +527,27 @@ static int luacall_hkdf(lua_State *L)
 }
 
 
+static int luacall_uname(lua_State *L)
+{
+	lua_check_argc(L,"uname", 0);
+
+	LUA_STACK_GUARD_ENTER(L)
+
+	struct utsname udata;
+
+	if (uname(&udata))
+		lua_pushnil(L);
+	else
+	{
+		lua_createtable(params.L, 0, 5);
+		lua_pushf_str("sysname", udata.sysname);
+		lua_pushf_str("nodename", udata.nodename);
+		lua_pushf_str("release", udata.release);
+		lua_pushf_str("version", udata.version);
+		lua_pushf_str("machine", udata.machine);
+	}
+	LUA_STACK_GUARD_RETURN(L,1)
+}
 
 static int luacall_instance_cutoff(lua_State *L)
 {
@@ -608,6 +630,23 @@ bool lua_instance_cutoff_check(const t_lua_desync_context *ctx, bool bIn)
 		lua_pop(params.L,4);
 	}
 	return b;
+}
+
+static int luacall_raw_packet(lua_State *L)
+{
+	lua_check_argc(L,"raw_packet",1);
+
+	LUA_STACK_GUARD_ENTER(L)
+
+	const t_lua_desync_context *ctx;
+
+	if (!lua_islightuserdata(L,1))
+		luaL_error(L, "raw_packet expect desync context in the first argument");
+	ctx = lua_touserdata(L,1);
+
+	lua_pushlstring(L, (const char*)ctx->dis->data_pkt, ctx->dis->len_pkt);
+
+	LUA_STACK_GUARD_RETURN(L,1)
 }
 
 
@@ -716,7 +755,6 @@ void lua_push_blob(int idx_desync, const char *blob)
 	{
 		lua_pop(params.L,1);
 		lua_getglobal(params.L, blob);
-printf("TYPE %s %d\n",blob,lua_type(params.L,-1));
 	}
 }
 void lua_pushf_blob(int idx_desync, const char *field, const char *blob)
@@ -2721,6 +2759,9 @@ static void lua_init_functions(void)
 
 		// voluntarily stop receiving packets
 		{"instance_cutoff",luacall_instance_cutoff},
+		// get raw packet data
+		{"raw_packet",luacall_raw_packet},
+		{"uname",luacall_uname},
 
 		// convert table representation to blob or vise versa
 		{"reconstruct_tcphdr",luacall_reconstruct_tcphdr},
