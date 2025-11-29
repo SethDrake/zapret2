@@ -497,6 +497,7 @@ function apply_fooling(desync, dis, fooling_options)
 		if not ttl and tonumber(arg_ttl) then
 			ttl = tonumber(arg_ttl)
 		end
+		--io.stderr:write("TTL "..tostring(ttl).."\n")
 		return ttl
 	end
 	local function move_ts_top()
@@ -753,11 +754,12 @@ function rawsend_dissect_segmented(desync, dis, mss, options)
 		if #discopy.payload > max_data then
 			local pos=1
 			local len
+			local payload=discopy.payload
 
-			while pos <= #discopy.payload do
-				len = #discopy.payload - pos + 1
+			while pos <= #payload do
+				len = #payload - pos + 1
 				if len > max_data then len = max_data end
-				discopy.payload = string.sub(discopy.payload,pos,pos+len-1)
+				discopy.payload = string.sub(payload,pos,pos+len-1)
 				if not rawsend_dissect_ipfrag(discopy, options) then
 					-- stop if failed
 					return false
