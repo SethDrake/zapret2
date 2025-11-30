@@ -201,8 +201,8 @@ static int luacall_swap16(lua_State *L)
 	lua_check_argc(L,"swap16",1);
 
 	lua_Integer i = luaL_checkinteger(L,1);
+	if (i>0xFFFF || i<-(lua_Integer)0xFFFF) luaL_error(L, "out of range");
 	uint16_t u = (uint16_t)i;
-	if (i!=u) luaL_error(L, "out of range");
 	lua_pushinteger(L,__builtin_bswap16(u));
 	return 1;
 }
@@ -211,8 +211,8 @@ static int luacall_swap32(lua_State *L)
 	lua_check_argc(L,"swap32",1);
 
 	lua_Integer i = luaL_checkinteger(L,1);
+	if (i>0xFFFFFFFF || i<-(lua_Integer)0xFFFFFFFF) luaL_error(L, "out of range");
 	uint32_t u = (uint32_t)i;
-	if (i!=u) luaL_error(L, "out of range");
 	lua_pushinteger(L,__builtin_bswap32(u));
 	return 1;
 }
@@ -221,7 +221,7 @@ static int luacall_bu8(lua_State *L)
 	lua_check_argc(L,"bu8",1);
 
 	lua_Integer i = luaL_checkinteger(L,1);
-	if (i & ~(uint64_t)0xFF) luaL_error(L, "out of range");
+	if (i>0xFF || i<-(lua_Integer)0xFF) luaL_error(L, "out of range");
 	uint8_t v=(uint8_t)i;
 	lua_pushlstring(L,(char*)&v,1);
 	return 1;
@@ -231,7 +231,7 @@ static int luacall_bu16(lua_State *L)
 	lua_check_argc(L,"bu16",1);
 
 	lua_Integer i = luaL_checkinteger(L,1);
-	if (i & ~(uint64_t)0xFFFF) luaL_error(L, "out of range");
+	if (i>0xFFFF || i<-(lua_Integer)0xFFFF) luaL_error(L, "out of range");
 	uint8_t v[2];
 	phton16(v,(uint16_t)i);
 	lua_pushlstring(L,(char*)v,2);
@@ -242,7 +242,7 @@ static int luacall_bu24(lua_State *L)
 	lua_check_argc(L,"bu24",1);
 
 	lua_Integer i = luaL_checkinteger(L,1);
-	if (i & ~(uint64_t)0xFFFFFF) luaL_error(L, "out of range");
+	if (i>0xFFFFFF || i<-(lua_Integer)0xFFFFFF) luaL_error(L, "out of range");
 	uint8_t v[3];
 	phton24(v,(uint32_t)i);
 	lua_pushlstring(L,(char*)v,3);
@@ -253,7 +253,7 @@ static int luacall_bu32(lua_State *L)
 	lua_check_argc(L,"bu32",1);
 
 	lua_Integer i = luaL_checkinteger(L,1);
-	if (i & ~(uint64_t)0xFFFFFFFF) luaL_error(L, "out of range");
+	if (i>0xFFFFFFFF || i<-(lua_Integer)0xFFFFFFFF) luaL_error(L, "out of range");
 	uint8_t v[4];
 	phton32(v,(uint32_t)i);
 	lua_pushlstring(L,(char*)v,4);
