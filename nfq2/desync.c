@@ -721,11 +721,14 @@ static uint8_t desync(
 		else
 		{
 			// create arg table that persists across multiple desync function calls
-			lua_createtable(params.L, 0, 12 + !!dp->name + !!ctrack + !!dis->tcp + 3*!!replay_piece_count);
+			lua_newtable(params.L);
 			lua_pushf_dissect(dis);
 			lua_pushf_ctrack(ctrack, pos);
 			lua_pushf_int("profile_n", dp->n);
 			if (dp->name) lua_pushf_str("profile_name", dp->name);
+			if (dp->n_tpl) lua_pushf_int("template_n", dp->n_tpl);
+			if (dp->name_tpl) lua_pushf_str("template_name", dp->name_tpl);
+			if (dp->cookie) lua_pushf_str("cookie", dp->cookie);
 			lua_pushf_bool("outgoing", !bIncoming);
 			lua_pushf_str("ifin", (ifin && *ifin) ? ifin : NULL);
 			lua_pushf_str("ifout", (ifout && *ifout) ? ifout : NULL);

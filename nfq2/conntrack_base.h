@@ -1,5 +1,7 @@
 #pragma once
 
+#include <time.h>
+
 #define CTRACK_T_SYN	60
 #define CTRACK_T_FIN	60
 #define CTRACK_T_EST	300

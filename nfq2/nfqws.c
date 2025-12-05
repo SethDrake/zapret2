@@ -1021,8 +1021,9 @@ bool lua_call_param_add(char *opt, struct str2_list_head *args)
 	{
 		arg->str2 = strdup(p+1);
 		*p = c;
+		if (!arg->str2) return false;
 	}
-	return !!arg->str2;
+	return !!arg->str1;
 }
 
 struct func_list *parse_lua_call(char *opt, struct func_list_head *flist)
@@ -1048,7 +1049,6 @@ struct func_list *parse_lua_call(char *opt, struct func_list_head *flist)
 		last = !*e;
 		c = *e;
 		*e = 0;
-
 		b = lua_call_param_add(p, &f->args);
 		if (!last) *e++ = c;
 		if (!b) goto err;
@@ -1409,8 +1409,9 @@ static void exithelp(void)
 		"\nMULTI-STRATEGY:\n"
 		" --new\t\t\t\t\t\t\t; begin new profile\n"
 		" --skip\t\t\t\t\t\t\t; do not use this profile\n"
-		" --name\t\t\t\t\t\t\t; set profile name\n"
-		" --template\t\t\t\t\t\t; use this profile as template (must be named or will be useless)\n"
+		" --name=<name>\t\t\t\t\t\t; set profile name\n"
+		" --template[=<name>]\t\t\t\t\t; use this profile as template (must be named or will be useless)\n"
+		" --cookie[=<string>]\t\t\t\t\t; pass this profile-bound string to LUA\n"
 		" --import=<name>\t\t\t\t\t; populate current profile with template data\n"
 		" --filter-l3=ipv4|ipv6\t\t\t\t\t; L3 protocol filter. multiple comma separated values allowed.\n"
 		" --filter-tcp=[~]port1[-port2]|*\t\t\t; TCP port filter. ~ means negation. setting tcp and not setting udp filter denies udp. comma separated list allowed.\n"
@@ -1564,6 +1565,7 @@ enum opt_indices {
 	IDX_NAME,
 	IDX_TEMPLATE,
 	IDX_IMPORT,
+	IDX_COOKIE,
 	IDX_FILTER_L3,
 	IDX_FILTER_TCP,
 	IDX_FILTER_UDP,
@@ -1645,8 +1647,9 @@ static const struct option long_options[] = {
 	[IDX_NEW] = {"new", no_argument, 0, 0},
 	[IDX_SKIP] = {"skip", no_argument, 0, 0},
 	[IDX_NAME] = {"name", required_argument, 0, 0},
-	[IDX_TEMPLATE] = {"template", no_argument, 0, 0},
+	[IDX_TEMPLATE] = {"template", optional_argument, 0, 0},
 	[IDX_IMPORT] = {"import", required_argument, 0, 0},
+	[IDX_COOKIE] = {"cookie", required_argument, 0, 0},
 	[IDX_FILTER_L3] = {"filter-l3", required_argument, 0, 0},
 	[IDX_FILTER_TCP] = {"filter-tcp", required_argument, 0, 0},
 	[IDX_FILTER_UDP] = {"filter-udp", required_argument, 0, 0},
@@ -2127,16 +2130,26 @@ int main(int argc, char **argv)
 		case IDX_SKIP:
 			bSkip = true;
 			break;
+		case IDX_TEMPLATE:
+			bTemplate = true;
 		case IDX_NAME:
-			free(dp->name);
-			if (!(dp->name = strdup(optarg)))
+			if (optarg)
+			{
+				free(dp->name);
+				if (!(dp->name = strdup(optarg)))
+				{
+					DLOG_ERR("out of memory\n");
+					exit_clean(1);
+				}
+			}
+			break;
+		case IDX_COOKIE:
+			free(dp->cookie);
+			if (!(dp->cookie = strdup(optarg)))
 			{
 				DLOG_ERR("out of memory\n");
 				exit_clean(1);
 			}
-			break;
-		case IDX_TEMPLATE:
-			bTemplate = true;
 			break;
 		case IDX_IMPORT:
 			{
@@ -2152,6 +2165,13 @@ int main(int argc, char **argv)
 					exit_clean(1);
 				}
 				dp->n = desync_profile_count;
+				free(dp->name_tpl);
+				if (tpl->dp.name && !(dp->name_tpl = strdup(tpl->dp.name)))
+				{
+					DLOG_ERR("out of memory\n");
+					exit_clean(1);
+				}
+				dp->n_tpl = tpl->dp.n;
 			}
 			break;
 

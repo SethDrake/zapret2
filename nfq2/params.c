@@ -346,6 +346,10 @@ void dp_init(struct desync_profile *dp)
 }
 static void dp_clear_dynamic(struct desync_profile *dp)
 {
+	free(dp->name);
+	free(dp->name_tpl);
+	free(dp->cookie);
+
 	hostlist_collection_destroy(&dp->hl_collection);
 	hostlist_collection_destroy(&dp->hl_collection_exclude);
 	ipset_collection_destroy(&dp->ips_collection);
@@ -357,7 +361,6 @@ static void dp_clear_dynamic(struct desync_profile *dp)
 	strlist_destroy(&dp->filter_ssid);
 #endif
 	HostFailPoolDestroy(&dp->hostlist_auto_fail_counters);
-	free(dp->name);
 }
 void dp_clear(struct desync_profile *dp)
 {
@@ -405,9 +408,10 @@ bool dp_list_copy(struct desync_profile *to, const struct desync_profile *from)
 	// prepare empty dynamic structures
 	dp_init_dynamic(to);
 	// copy dynamic structures
-	to->name = strdup(from->name);
+	if (from->name && !(to->name = strdup(from->name))) return false;
+	if (from->name_tpl && !(to->name_tpl = strdup(from->name_tpl))) return false;
+	if (from->cookie && !(to->cookie = strdup(from->cookie))) return false;
 	if (
-		!to->name ||
 #ifdef HAS_FILTER_SSID
 		!strlist_copy(&to->filter_ssid, &from->filter_ssid) ||
 #endif

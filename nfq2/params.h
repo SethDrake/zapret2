@@ -55,6 +55,9 @@ struct desync_profile
 {
 	unsigned int n;	// number of the profile
 	char *name; // optional malloced name string
+	unsigned int n_tpl; // number of imported template
+	char *name_tpl; // imported template name
+	char *cookie; // optional malloced string
 
 	bool filter_ipv4,filter_ipv6;
 	struct port_filters_head pf_tcp,pf_udp;

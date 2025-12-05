@@ -8,7 +8,6 @@
 #include <stdint.h>
 #include <ctype.h>
 #include <sys/types.h>
-#include <time.h>
 #include <netinet/in.h>
 
 #define __FAVOR_BSD
