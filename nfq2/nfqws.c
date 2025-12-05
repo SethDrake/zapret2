@@ -1499,22 +1499,6 @@ static void ApplyDefaultBlobs(struct blob_collection_head *blobs)
 	load_const_blob_to_collection("fake_default_quic",buf,620,blobs,0);
 }
 
-#define STRINGIFY(x) #x
-#define TOSTRING(x) STRINGIFY(x)
-#if defined(ZAPRET_GH_VER) || defined (ZAPRET_GH_HASH)
-#ifdef __ANDROID__
-#define PRINT_VER printf("github android version %s (%s)\n\n", TOSTRING(ZAPRET_GH_VER), TOSTRING(ZAPRET_GH_HASH))
-#else
-#define PRINT_VER printf("github version %s (%s)\n\n", TOSTRING(ZAPRET_GH_VER), TOSTRING(ZAPRET_GH_HASH))
-#endif
-#else
-#ifdef __ANDROID__
-#define PRINT_VER printf("self-built android version %s %s\n\n", __DATE__, __TIME__)
-#else
-#define PRINT_VER printf("self-built version %s %s\n\n", __DATE__, __TIME__)
-#endif
-#endif
-
 enum opt_indices {
 	IDX_DEBUG,
 	IDX_DRY_RUN,
@@ -1686,6 +1670,23 @@ static const struct option long_options[] = {
 	[IDX_LAST] = {NULL, 0, NULL, 0},
 };
 
+
+#define STRINGIFY(x) #x
+#define TOSTRING(x) STRINGIFY(x)
+#if defined(ZAPRET_GH_VER) || defined (ZAPRET_GH_HASH)
+#ifdef __ANDROID__
+#define MAKE_VER(s,size) snprintf(s,size,"github android version %s (%s) lua_compat_ver %u", TOSTRING(ZAPRET_GH_VER), TOSTRING(ZAPRET_GH_HASH), LUA_COMPAT_VER)
+#else
+#define MAKE_VER(s,size) snprintf(s,size,"github version %s (%s) lua_compat_ver %u", TOSTRING(ZAPRET_GH_VER), TOSTRING(ZAPRET_GH_HASH), LUA_COMPAT_VER)
+#endif
+#else
+#ifdef __ANDROID__
+#define MAKE_VER(s,size) snprintf(s,size,"self-built android version %s %s lua_compat_ver %u", __DATE__, __TIME__, LUA_COMPAT_VER)
+#else
+#define MAKE_VER(s,size) snprintf(s,size,"self-built version %s %s lua_compat_ver %u", __DATE__, __TIME__, LUA_COMPAT_VER)
+#endif
+#endif
+
 int main(int argc, char **argv)
 {
 #ifdef __CYGWIN__
@@ -1720,9 +1721,11 @@ int main(int argc, char **argv)
 	prepare_low_appdata();
 #endif
 
-	PRINT_VER;
-
 	init_params(&params);
+
+	MAKE_VER(params.verstr, sizeof(params.verstr));
+	printf("%s\n\n",params.verstr);
+
 	ApplyDefaultBlobs(&params.blobs);
 
 	struct desync_profile_list *dpl;

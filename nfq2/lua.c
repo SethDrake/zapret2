@@ -2794,6 +2794,21 @@ static void lua_init_const(void)
 
 	const struct
 	{
+		const char *name, *v;
+	} cstr[] = {
+		{"NFQWS2_VER",params.verstr}
+	};
+
+	DLOG("LUA STR:");
+	for (int i=0;i<sizeof(cstr)/sizeof(*cstr);i++)
+	{
+		lua_pushstring(params.L, cstr[i].v);
+		lua_setglobal(params.L, cstr[i].name);
+		DLOG(" %s", cstr[i].name);
+	}
+
+	const struct
+	{
 		const char *name;
 		unsigned int v;
 	} cuint[] = {
@@ -2803,6 +2818,7 @@ static void lua_init_const(void)
 		{"divert_port",params.port},
 #endif
 		{"desync_fwmark",params.desync_fwmark},
+		{"NFQWS2_COMPAT_VER",LUA_COMPAT_VER},
 
 		{"VERDICT_PASS",VERDICT_PASS},
 		{"VERDICT_MODIFY",VERDICT_MODIFY},
@@ -2864,7 +2880,7 @@ static void lua_init_const(void)
 		{"IPPROTO_SHIM6",IPPROTO_SHIM6},
 		{"IPPROTO_NONE",IPPROTO_NONE}
 	};
-	DLOG("LUA NUMERIC:");
+	DLOG("\nLUA NUMERIC:");
 	for (int i=0;i<sizeof(cuint)/sizeof(*cuint);i++)
 	{
 		lua_pushinteger(params.L, (lua_Integer)cuint[i].v);

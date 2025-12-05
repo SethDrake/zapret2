@@ -113,6 +113,7 @@ struct params_s
 #if !defined( __OpenBSD__) && !defined(__ANDROID__)
 	wordexp_t wexp; // for file based config
 #endif
+	char verstr[128];
 
 	enum log_target debug_target;
 	char debug_logfile[PATH_MAX];
