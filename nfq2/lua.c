@@ -68,31 +68,47 @@ static int luacall_DLOG_CONDUP(lua_State *L)
 static int luacall_bitlshift(lua_State *L)
 {
 	lua_check_argc(L,"bitlshift",2);
-	lua_pushinteger(L,luaL_checkinteger(L,1) << luaL_checkinteger(L,2));
+	lua_Integer v=luaL_checkinteger(L,1);
+	if (v>0xFFFFFFFF || v<-(lua_Integer)0xFFFFFFFF) luaL_error(L, "out of range");
+	lua_pushinteger(L,v << luaL_checkinteger(L,2));
 	return 1;
 }
 static int luacall_bitrshift(lua_State *L)
 {
 	lua_check_argc(L,"bitrshift",2);
-	lua_pushinteger(L,((LUA_UNSIGNED)luaL_checkinteger(L,1)) >> luaL_checkinteger(L,2));
+	lua_Integer v=luaL_checkinteger(L,1);
+	if (v>0xFFFFFFFF || v<-(lua_Integer)0xFFFFFFFF) luaL_error(L, "out of range");
+	lua_pushinteger(L,v >> luaL_checkinteger(L,2));
 	return 1;
 }
 static int luacall_bitand(lua_State *L)
 {
 	lua_check_argc_range(L,"bitand",2,100);
 	int argc = lua_gettop(L);
-	lua_Integer v=luaL_checkinteger(L,1);
-	for(int i=2;i<=argc;i++) v&=luaL_checkinteger(L,i);
-	lua_pushinteger(L,v);
+	lua_Integer v;
+	uint32_t sum=0xFFFFFFFF;
+	for(int i=1;i<=argc;i++)
+	{
+		v=luaL_checkinteger(L,i);
+		if (v>0xFFFFFFFF || v<-(lua_Integer)0xFFFFFFFF) luaL_error(L, "out of range");
+		sum&=(uint32_t)v;
+	}
+	lua_pushinteger(L,sum);
 	return 1;
 }
 static int luacall_bitor(lua_State *L)
 {
-	lua_check_argc_range(L,"bitor",2,100);
+	lua_check_argc_range(L,"bitor",1,100);
 	int argc = lua_gettop(L);
-	lua_Integer v=0;
-	for(int i=1;i<=argc;i++) v|=luaL_checkinteger(L,i);
-	lua_pushinteger(L,v);
+	lua_Integer v;
+	uint32_t sum=0;
+	for(int i=1;i<=argc;i++)
+	{
+		v=luaL_checkinteger(L,i);
+		if (v>0xFFFFFFFF || v<-(lua_Integer)0xFFFFFFFF) luaL_error(L, "out of range");
+		sum|=(uint32_t)v;
+	}
+	lua_pushinteger(L,sum);
 	return 1;
 }
 static int luacall_bitnot(lua_State *L)
@@ -103,21 +119,29 @@ static int luacall_bitnot(lua_State *L)
 }
 static int luacall_bitxor(lua_State *L)
 {
-	lua_check_argc_range(L,"bitxor",2,100);
+	lua_check_argc_range(L,"bitxor",1,100);
 	int argc = lua_gettop(L);
-	lua_Integer v=0;
-	for(int i=1;i<=argc;i++) v^=luaL_checkinteger(L,i);
-	lua_pushinteger(L,v);
+	lua_Integer v;
+	uint32_t sum=0;
+	for(int i=1;i<=argc;i++)
+	{
+		v=luaL_checkinteger(L,i);
+		if (v>0xFFFFFFFF || v<-(lua_Integer)0xFFFFFFFF) luaL_error(L, "out of range");
+		sum^=(uint32_t)v;
+	}
+	lua_pushinteger(L,sum);
 	return 1;
 }
 static int luacall_bitget(lua_State *L)
 {
 	lua_check_argc(L,"bitget",3);
 
-	LUA_UNSIGNED what = (LUA_UNSIGNED)luaL_checkinteger(L,1);
+	lua_Integer iwhat = luaL_checkinteger(L,1);
+	if (iwhat>0xFFFFFFFF || iwhat<-(lua_Integer)0xFFFFFFFF) luaL_error(L, "out of range");
+	uint32_t what = (uint32_t)iwhat;
 	lua_Integer from = luaL_checkinteger(L,2);
 	lua_Integer to = luaL_checkinteger(L,3);
-	if (from>to || from>63 || to>63)
+	if (from>to || from>31 || to>31)
 		luaL_error(L, "bit range invalid");
 
 	what = (what >> from) & ~((lua_Integer)-1 << (to-from+1));
@@ -129,11 +153,15 @@ static int luacall_bitset(lua_State *L)
 {
 	lua_check_argc(L,"bitset",4);
 
-	LUA_UNSIGNED what = (LUA_UNSIGNED)luaL_checkinteger(L,1);
+	lua_Integer iwhat = luaL_checkinteger(L,1);
+	if (iwhat>0xFFFFFFFF || iwhat<-(lua_Integer)0xFFFFFFFF) luaL_error(L, "out of range");
+	uint32_t what = (uint32_t)iwhat;
 	lua_Integer from = luaL_checkinteger(L,2);
 	lua_Integer to = luaL_checkinteger(L,3);
-	LUA_UNSIGNED set = (LUA_UNSIGNED)luaL_checkinteger(L,4);
-	if (from>to || from>63 || to>63)
+	lua_Integer iset = luaL_checkinteger(L,4);
+	if (iset>0xFFFFFFFF || iset<-(lua_Integer)0xFFFFFFFF) luaL_error(L, "out of range");
+	uint32_t set = (uint32_t)iset;
+	if (from>to || from>31 || to>31)
 		luaL_error(L, "bit range invalid");
 
 	lua_Integer mask = ~((lua_Integer)-1 << (to-from+1));
@@ -214,35 +242,36 @@ static int luacall_swap16(lua_State *L)
 }
 static int lua_uxadd(lua_State *L, uint32_t max)
 {
-	lua_Integer sum=0, v;
+	lua_Integer v;
+	uint32_t sum=0;
 	int argc = lua_gettop(L);
 	for(int i=1;i<=argc;i++)
 	{
 		v = luaL_checkinteger(L,i);
 		if (v>max || v<-(lua_Integer)max) luaL_error(L, "out of range");
-		sum+=v;
+		sum+=(uint32_t)v;
 	}
 	lua_pushinteger(L, sum & max);
 	return 1;
 }
 static int luacall_u8add(lua_State *L)
 {
-	lua_check_argc_range(L,"u8add",2,100);
+	lua_check_argc_range(L,"u8add",1,100);
 	return lua_uxadd(L, 0xFF);
 }
 static int luacall_u16add(lua_State *L)
 {
-	lua_check_argc_range(L,"u16add",2,100);
+	lua_check_argc_range(L,"u16add",1,100);
 	return lua_uxadd(L, 0xFFFF);
 }
 static int luacall_u24add(lua_State *L)
 {
-	lua_check_argc_range(L,"u24add",2,100);
+	lua_check_argc_range(L,"u24add",1,100);
 	return lua_uxadd(L, 0xFFFFFF);
 }
 static int luacall_u32add(lua_State *L)
 {
-	lua_check_argc_range(L,"u32add",2,100);
+	lua_check_argc_range(L,"u32add",1,100);
 	return lua_uxadd(L, 0xFFFFFFFF);
 }
 

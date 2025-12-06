@@ -668,10 +668,10 @@ function apply_fooling(desync, dis, fooling_options)
 	if not dis then dis = desync.dis end
 	if dis.tcp then
 		if tonumber(fooling_options.tcp_seq) then
-			dis.tcp.th_seq = dis.tcp.th_seq + fooling_options.tcp_seq
+			dis.tcp.th_seq = u32add(dis.tcp.th_seq, fooling_options.tcp_seq)
 		end
 		if tonumber(fooling_options.tcp_ack) then
-			dis.tcp.th_ack = dis.tcp.th_ack + fooling_options.tcp_ack
+			dis.tcp.th_ack = u32add(dis.tcp.th_ack, fooling_options.tcp_ack)
 		end
 		if fooling_options.tcp_flags_unset then
 			dis.tcp.th_flags = bitand(dis.tcp.th_flags, bitnot(parse_tcp_flags(fooling_options.tcp_flags_unset)))
@@ -682,7 +682,7 @@ function apply_fooling(desync, dis, fooling_options)
 		if tonumber(fooling_options.tcp_ts) then
 			local idx = find_tcp_option(dis.tcp.options,TCP_KIND_TS)
 			if idx and (dis.tcp.options[idx].data and #dis.tcp.options[idx].data or 0)==8 then
-				dis.tcp.options[idx].data = bu32(u32(dis.tcp.options[idx].data)+fooling_options.tcp_ts)..string.sub(dis.tcp.options[idx].data,5)
+				dis.tcp.options[idx].data = bu32(u32add(u32(dis.tcp.options[idx].data),fooling_options.tcp_ts))..string.sub(dis.tcp.options[idx].data,5)
 			else
 				DLOG("apply_fooling: timestamp tcp option not present or invalid")
 			end
@@ -1196,3 +1196,5 @@ function ipfrag2(dis, ipfrag_options)
 
 	return {dis1,dis2}
 end
+
+print(bitor(-4,-2))
