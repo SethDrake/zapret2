@@ -151,7 +151,7 @@ function replay_execution_plan(desync, plan)
 			DLOG("orchestrator: not calling '"..desync.func_instance.."' because pos "..pos_str(desync,plan[i].range.from).." "..pos_str(desync,plan[i].range.to).." is out of range '"..pos_range_str(plan[i].range).."'")
 		else
 			apply_execution_plan(desync, plan[i])
-			DLOG("orchestrator: executing '"..desync.func_instance.."'")
+			DLOG("orchestrator: calling '"..desync.func_instance.."'")
 			verdict = verdict_aggregate(verdict,_G[plan[i].func](nil, desync))
 		end
 	end

@@ -206,7 +206,7 @@ function circular(ctx, desync)
 			elseif not pos_check_range(dcopy, plan[i].range) then
 				DLOG("circular: not calling '"..dcopy.func_instance.."' because pos "..pos_str(dcopy,plan[i].range.from).." "..pos_str(dcopy,plan[i].range.to).." is out of range '"..pos_range_str(plan[i].range).."'")
 			else
-				DLOG("circular: executing '"..dcopy.func_instance.."'")
+				DLOG("circular: calling '"..dcopy.func_instance.."'")
 				verdict = verdict_aggregate(verdict,_G[plan[i].func](nil, dcopy))
 			end
 		end
