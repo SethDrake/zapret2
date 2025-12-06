@@ -1,8 +1,19 @@
+-- arg: reqhost - require hostname, do not work with ip
 function automate_host_record(desync)
+	local key
+	if desync.arg.reqhost then
+		key = desync.track and desync.track.hostname
+	else
+		key = host_or_ip(desync)
+	end
+	if not key then
+		DLOG("automate: host record key unavailable")
+		return nil
+	end
+	DLOG("automate: host record key '"..key.."'")
 	if not autostate then
 		autostate = {}
 	end
-	local key = host_or_ip(desync)
 	if not autostate[key] then
 		autostate[key] = {}
 	end
@@ -68,6 +79,7 @@ end
 -- arg: seq=<rseq> - if packet is beyond this relative sequence number treat this connection as successful. default is 64K
 -- arg: rst=<rseq> - maximum relative sequence number to treat incoming RST as DPI reset. default is 1
 -- arg: time=<sec> - if last failure happened earlier than `maxtime` seconds ago - reset failure counter. default is 60.
+-- arg: reqhost - pass with no tampering if hostname is unavailable
 -- test case: nfqws2 --qnum 200 --debug --lua-init=@zapret-lib.lua --lua-init=@zapret-auto.lua --in-range=-s1 --lua-desync=circular --lua-desync=argdebug:strategy=1 --lua-desync=argdebug:strategy=2
 function circular(ctx, desync)
 	local function count_strategies(hrec, plan)
@@ -105,26 +117,20 @@ function circular(ctx, desync)
 		instance_cutoff(ctx)
 		return
 	end
-
 	if not desync.track then
 		DLOG_ERR("circular: conntrack is missing but required")
 		return
 	end
 
-	local rstseq = tonumber(desync.arg.rst) or 1
-	local maxseq = tonumber(desync.arg.seq) or 0x10000
-	local fails = tonumber(desync.arg.fails) or 3
-	local retrans = tonumber(desync.arg.retrans) or 3
-	local maxtime = tonumber(desync.arg.time) or 60
-	local hrec = automate_host_record(desync)
-	local crec = automate_conn_record(desync)
-	local pos = bitand(desync.track.tcp.seq - desync.track.tcp.seq0,0xFFFFFFFF)
-	local trigger = false
-	local once = true
 	local plan = execution_plan(ctx)
-
 	if #plan==0 then
 		DLOG("circular: need some desync instances or useless")
+		return
+	end
+
+	local hrec = automate_host_record(desync)
+	if not hrec then
+		DLOG("circular: passing with no tampering")
 		return
 	end
 
@@ -132,6 +138,15 @@ function circular(ctx, desync)
 	if hrec.ctstrategy==0 then
 		error("circular: add strategy=N tag argument to each following instance ! N must start from 1 and increment")
 	end
+
+	local rstseq = tonumber(desync.arg.rst) or 1
+	local maxseq = tonumber(desync.arg.seq) or 0x10000
+	local fails = tonumber(desync.arg.fails) or 3
+	local retrans = tonumber(desync.arg.retrans) or 3
+	local maxtime = tonumber(desync.arg.time) or 60
+	local crec = automate_conn_record(desync)
+	local pos = bitand(desync.track.tcp.seq - desync.track.tcp.seq0,0xFFFFFFFF)
+	local trigger = false
 
 	if not hrec.nstrategy then
 		DLOG("circular: start from strategy 1")
@@ -147,7 +162,6 @@ function circular(ctx, desync)
 	end
 
 	local verdict = VERDICT_PASS
-
 	if not crec.nocheck and hrec.final~=hrec.nstrategy then
 		if desync.outgoing then
 			if #desync.dis.payload>0 and (crec.retrans or 0)<retrans then
