@@ -571,7 +571,31 @@ function dissect_nld(domain, level)
 	end
 	return nil
 end
+-- location is url compatible with Location: header
+-- hostname is original hostname
+function is_dpi_redirect(hostname, location)
+	local ds = dissect_url(location)
+	if ds.domain then
+		local sld1 = dissect_nld(hostname,2)
+		local sld2 = dissect_nld(ds.domain,2)
+		return sld2 and sld1~=sld2
+	end
+	return false
+end
 
+-- support sni=%var
+function tls_mod_shim(desync, blob, modlist, payload)
+	local p1,p2 = string.find(modlist,"sni=%%[^,]+")
+	if p1 then
+		local var = string.sub(modlist,p1+5,p2)
+		local val = desync[var] or _G[var]
+		if not val then
+			error("tls_mod_shim: non-existent var '"..var.."'")
+		end
+		modlist = string.sub(modlist,1,p1+3)..val..string.sub(modlist,p2+1)
+	end
+	return tls_mod(blob,modlist,payload)
+end
 
 -- convert comma separated list of tcp flags to tcp.th_flags bit field
 function parse_tcp_flags(s)
@@ -1316,15 +1340,3 @@ function ipfrag2(dis, ipfrag_options)
 	return {dis1,dis2}
 end
 
-
--- location is url compatible with Location: header
--- hostname is original hostname
-function is_dpi_redirect(hostname, location)
-	local ds = dissect_url(location)
-	if ds.domain then
-		local sld1 = dissect_nld(hostname,2)
-		local sld2 = dissect_nld(ds.domain,2)
-		return sld2 and sld1~=sld2
-	end
-	return false
-end
