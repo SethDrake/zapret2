@@ -143,6 +143,9 @@ function apply_arg_prefix(desync)
 	end
 end
 -- copy instance identification and args from execution plan to desync table
+-- NOTE : to not lose VERDICT_MODIFY dissect changes pass original desync table
+-- NOTE : if a copy was passed and VERDICT_MODIFY returned you must copy modified dissect back to desync table or resend it and return VERDICT_DROP
+-- NOTE : args and some fields are substituted. if you need them - make a copy before calling this.
 function apply_execution_plan(desync, instance)
 	desync.func = instance.func
 	desync.func_n = instance.func_n
@@ -206,12 +209,11 @@ function desync_copy(desync)
 end
 -- redo what whould be done without orchestration
 function replay_execution_plan(desync)
-	local dcopy = desync_copy(desync)
 	local verdict = VERDICT_PASS
 	while true do
-		local instance = plan_instance_pop(dcopy)
+		local instance = plan_instance_pop(desync)
 		if not instance then break end
-		verdict = plan_instance_execute(dcopy, verdict, instance)
+		verdict = plan_instance_execute(desync, verdict, instance)
 	end
 	return verdict
 end

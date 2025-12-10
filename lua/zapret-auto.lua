@@ -244,12 +244,11 @@ function circular(ctx, desync)
 	end
 
 	DLOG("circular: current strategy "..hrec.nstrategy)
-	local dcopy = desync_copy(desync)
 	while true do
 		local instance = plan_instance_pop(desync)
 		if not instance then break end
 		if instance.arg.strategy and tonumber(instance.arg.strategy)==hrec.nstrategy then
-			verdict = plan_instance_execute(dcopy, verdict, instance)
+			verdict = plan_instance_execute(desync, verdict, instance)
 		end
 	end
 
