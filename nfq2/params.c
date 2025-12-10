@@ -343,6 +343,7 @@ void dp_init(struct desync_profile *dp)
 	dp->hostlist_auto_fail_time = HOSTLIST_AUTO_FAIL_TIME_DEFAULT;
 	dp->hostlist_auto_retrans_threshold = HOSTLIST_AUTO_RETRANS_THRESHOLD_DEFAULT;
 	dp->hostlist_auto_retrans_maxseq = HOSTLIST_AUTO_RETRANS_MAXSEQ;
+	dp->hostlist_auto_incoming_maxseq = HOSTLIST_AUTO_INCOMING_MAXSEQ;
 	dp->filter_ipv4 = dp->filter_ipv6 = true;
 }
 static void dp_clear_dynamic(struct desync_profile *dp)

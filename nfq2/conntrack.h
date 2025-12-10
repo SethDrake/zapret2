@@ -63,7 +63,7 @@ typedef struct
 	bool dp_search_complete;
 
 	uint8_t req_retrans_counter;		// number of request retransmissions
-	bool retrans_detect_finalized;
+	bool failure_detect_finalized;
 
 	uint8_t incoming_ttl;
 

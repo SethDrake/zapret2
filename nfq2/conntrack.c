@@ -140,7 +140,7 @@ static void ConntrackApplyPos(const struct tcphdr *tcp, t_ctrack *t, bool bRever
 	scale = tcp_find_scale_factor(tcp);
 	mss = ntohs(tcp_find_mss(tcp));
 
- 	direct->seq_last = ntohl(tcp->th_seq);
+	direct->seq_last = ntohl(tcp->th_seq);
 	direct->pos = direct->seq_last + len_payload;
 	reverse->pos = reverse->seq_last = ntohl(tcp->th_ack);
 	if (t->pos.state == SYN)

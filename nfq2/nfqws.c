@@ -1435,6 +1435,7 @@ static void exithelp(void)
 		" --hostlist-auto-fail-time=<int>\t\t\t; all failed attemps must be within these seconds (default : %d)\n"
 		" --hostlist-auto-retrans-threshold=<int>\t\t; how many request retransmissions cause attempt to fail (default : %d)\n"
 		" --hostlist-auto-retrans-maxseq=<int>\t\t\t; count retransmissions only within this relative sequence (default : %u)\n"
+		" --hostlist-auto-incoming-maxseq=<int>\t\t\t; treat tcp connection as successful if incoming relative sequence exceedes this threshold (default : %u)\n"
 		" --hostlist-auto-debug=<logfile>\t\t\t; debug auto hostlist positives (global parameter)\n"
 		"\nLUA PACKET PASS MODE:\n"
 		" --payload=type[,type]\t\t\t\t\t; set payload types following LUA functions should process : %s\n"
@@ -1450,7 +1451,8 @@ static void exithelp(void)
 		LUA_GC_INTERVAL,
 		all_protos,
 		HOSTLIST_AUTO_FAIL_THRESHOLD_DEFAULT, HOSTLIST_AUTO_FAIL_TIME_DEFAULT,
-		HOSTLIST_AUTO_RETRANS_THRESHOLD_DEFAULT, HOSTLIST_AUTO_RETRANS_MAXSEQ,
+		HOSTLIST_AUTO_RETRANS_THRESHOLD_DEFAULT,
+		HOSTLIST_AUTO_RETRANS_MAXSEQ, HOSTLIST_AUTO_INCOMING_MAXSEQ,
 		all_payloads
 	);
 	exit(1);
@@ -1548,6 +1550,7 @@ enum opt_indices {
 	IDX_HOSTLIST_AUTO_FAIL_TIME,
 	IDX_HOSTLIST_AUTO_RETRANS_THRESHOLD,
 	IDX_HOSTLIST_AUTO_RETRANS_MAXSEQ,
+	IDX_HOSTLIST_AUTO_INCOMING_MAXSEQ,
 	IDX_HOSTLIST_AUTO_DEBUG,
 	IDX_NEW,
 	IDX_SKIP,
@@ -1633,6 +1636,7 @@ static const struct option long_options[] = {
 	[IDX_HOSTLIST_AUTO_FAIL_TIME] = {"hostlist-auto-fail-time", required_argument, 0, 0},
 	[IDX_HOSTLIST_AUTO_RETRANS_THRESHOLD] = {"hostlist-auto-retrans-threshold", required_argument, 0, 0},
 	[IDX_HOSTLIST_AUTO_RETRANS_MAXSEQ] = {"hostlist-auto-retrans-maxseq", required_argument, 0, 0},
+	[IDX_HOSTLIST_AUTO_INCOMING_MAXSEQ] = {"hostlist-auto-incoming-maxseq", required_argument, 0, 0},
 	[IDX_HOSTLIST_AUTO_DEBUG] = {"hostlist-auto-debug", required_argument, 0, 0},
 	[IDX_NEW] = {"new", no_argument, 0, 0},
 	[IDX_SKIP] = {"skip", no_argument, 0, 0},
@@ -2099,6 +2103,9 @@ int main(int argc, char **argv)
 			break;
 		case IDX_HOSTLIST_AUTO_RETRANS_MAXSEQ:
 			dp->hostlist_auto_retrans_maxseq = (uint32_t)atoi(optarg);
+			break;
+		case IDX_HOSTLIST_AUTO_INCOMING_MAXSEQ:
+			dp->hostlist_auto_incoming_maxseq = (uint32_t)atoi(optarg);
 			break;
 		case IDX_HOSTLIST_AUTO_DEBUG:
 		{

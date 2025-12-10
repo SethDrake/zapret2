@@ -252,12 +252,12 @@ static bool auto_hostlist_retrans(t_ctrack *ctrack, uint8_t l4proto, int thresho
 	{
 		if (l4proto == IPPROTO_TCP)
 		{
-			if (ctrack->retrans_detect_finalized)
+			if (ctrack->failure_detect_finalized)
 				return false;
 			if (!seq_within(ctrack->pos.client.seq_last, ctrack->pos.client.seq0, ctrack->pos.client.seq0 + ctrack->dp->hostlist_auto_retrans_maxseq))
 			{
-				ctrack->retrans_detect_finalized = true;
-				DLOG("retrans : tcp seq %u not within the req range %u-%u. stop tracking.\n", ctrack->pos.client.seq_last, ctrack->pos.client.seq0, ctrack->pos.client.seq0 + ctrack->dp->hostlist_auto_retrans_maxseq);
+				ctrack->failure_detect_finalized = true;
+				DLOG("retrans : tcp seq %u not within range %u-%u. stop tracking.\n", ctrack->pos.client.seq_last, ctrack->pos.client.seq0, ctrack->pos.client.seq0 + ctrack->dp->hostlist_auto_retrans_maxseq);
 				ctrack_stop_retrans_counter(ctrack);
 				auto_hostlist_reset_fail_counter(ctrack->dp, ctrack->hostname, client_ip_port, l7proto);
 				return false;
@@ -270,7 +270,7 @@ static bool auto_hostlist_retrans(t_ctrack *ctrack, uint8_t l4proto, int thresho
 		{
 			DLOG("retrans threshold reached : %u/%u\n", ctrack->req_retrans_counter, threshold);
 			ctrack_stop_retrans_counter(ctrack);
-			ctrack->retrans_detect_finalized = true;
+			ctrack->failure_detect_finalized = true;
 			return true;
 		}
 		DLOG("retrans counter : %u/%u\n", ctrack->req_retrans_counter, threshold);
@@ -1097,49 +1097,48 @@ static uint8_t dpi_desync_tcp_packet_play(
 		// process reply packets for auto hostlist mode
 		// by looking at RSTs or HTTP replies we decide whether original request looks like DPI blocked
 		// we only process first-sequence replies. do not react to subsequent redirects or RSTs
-		if (!params.server && ctrack && ctrack->hostname && ctrack->hostname_ah_check && (ctrack->pos.server.seq_last - ctrack->pos.server.seq0) == 1)
+		if (!params.server && ctrack && ctrack->hostname_ah_check && !ctrack->failure_detect_finalized)
 		{
-			bool bFail = false;
-
 			char client_ip_port[48];
 			if (*params.hostlist_auto_debuglog)
 				ntop46_port((struct sockaddr*)&dst, client_ip_port, sizeof(client_ip_port));
 			else
 				*client_ip_port = 0;
+			if (seq_within(ctrack->pos.server.seq_last, ctrack->pos.server.seq0, ctrack->pos.server.seq0 + dp->hostlist_auto_incoming_maxseq))
+			{
+				bool bFail = false;
+				uint32_t rseq = ctrack->pos.server.seq_last - ctrack->pos.server.seq0;
 
-			if (dis->tcp->th_flags & TH_RST)
-			{
-				DLOG("incoming RST detected for hostname %s\n", ctrack->hostname);
-				HOSTLIST_DEBUGLOG_APPEND("%s : profile %u (%s) : client %s : proto %s : incoming RST", ctrack->hostname, ctrack->dp->n, PROFILE_NAME(dp), client_ip_port, l7proto_str(l7proto));
-				bFail = true;
-			}
-			else if (dis->len_payload && l7proto == L7_HTTP)
-			{
-				if (l7payload == L7P_HTTP_REPLY)
+				if (dis->tcp->th_flags & TH_RST)
 				{
-					DLOG("incoming HTTP reply detected for hostname %s\n", ctrack->hostname);
+					DLOG("incoming RST detected for hostname %s rseq %u\n", ctrack->hostname, rseq);
+					HOSTLIST_DEBUGLOG_APPEND("%s : profile %u (%s) : client %s : proto %s : rseq %u : incoming RST", ctrack->hostname, ctrack->dp->n, PROFILE_NAME(dp), client_ip_port, l7proto_str(l7proto), rseq);
+					bFail = true;
+				}
+				else if (dis->len_payload && l7payload == L7P_HTTP_REPLY)
+				{
+					DLOG("incoming HTTP reply detected for hostname %s rseq\n", ctrack->hostname, rseq);
 					bFail = HttpReplyLooksLikeDPIRedirect(dis->data_payload, dis->len_payload, ctrack->hostname);
 					if (bFail)
 					{
 						DLOG("redirect to another domain detected. possibly DPI redirect.\n");
-						HOSTLIST_DEBUGLOG_APPEND("%s : profile %u (%s) : client %s : proto %s : redirect to another domain", ctrack->hostname, ctrack->dp->n, PROFILE_NAME(dp), client_ip_port, l7proto_str(l7proto));
+						HOSTLIST_DEBUGLOG_APPEND("%s : profile %u (%s) : client %s : proto %s : rseq %u : redirect to another domain", ctrack->hostname, ctrack->dp->n, PROFILE_NAME(dp), client_ip_port, l7proto_str(l7proto), rseq);
 					}
 					else
 						DLOG("local or in-domain redirect detected. it's not a DPI redirect.\n");
 				}
-				else
+				if (bFail)
 				{
-					// received not http reply. do not monitor this connection anymore
-					DLOG("incoming unknown HTTP data detected for hostname %s\n", ctrack->hostname);
+					auto_hostlist_failed(dp, ctrack->hostname, ctrack->hostname_is_ip, client_ip_port, l7proto);
+					ctrack->failure_detect_finalized = true;
 				}
 			}
-			if (bFail)
-				auto_hostlist_failed(dp, ctrack->hostname, ctrack->hostname_is_ip, client_ip_port, l7proto);
 			else
-				if (dis->len_payload)
-					auto_hostlist_reset_fail_counter(dp, ctrack->hostname, client_ip_port, l7proto);
-			if (dis->tcp->th_flags & TH_RST)
-				ctrack->hostname_ah_check = false; // do not react to further dup RSTs
+			{
+				// incoming_maxseq exceeded. treat connection as successful
+				auto_hostlist_reset_fail_counter(dp, ctrack->hostname, client_ip_port, l7proto);
+				ctrack->failure_detect_finalized = true;
+			}
 		}
 	}
 	// not reverse
