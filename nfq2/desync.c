@@ -1095,47 +1095,50 @@ static uint8_t dpi_desync_tcp_packet_play(
 		// process reply packets for auto hostlist mode
 		// by looking at RSTs or HTTP replies we decide whether original request looks like DPI blocked
 		// we only process first-sequence replies. do not react to subsequent redirects or RSTs
-		uint32_t rseq = ctrack->pos.server.seq_last - ctrack->pos.server.seq0;
-		if (!params.server && ctrack && ctrack->hostname_ah_check && !ctrack->failure_detect_finalized && rseq && dp->hostlist_auto_incoming_maxseq)
+		if (!params.server && ctrack && ctrack->hostname_ah_check && !ctrack->failure_detect_finalized && dp->hostlist_auto_incoming_maxseq)
 		{
-			char client_ip_port[48];
-			if (*params.hostlist_auto_debuglog)
-				ntop46_port((struct sockaddr*)&dst, client_ip_port, sizeof(client_ip_port));
-			else
-				*client_ip_port = 0;
-			if (seq_within(ctrack->pos.server.seq_last, ctrack->pos.server.seq0 + 1, ctrack->pos.server.seq0 + dp->hostlist_auto_incoming_maxseq))
+			uint32_t rseq = ctrack->pos.server.seq_last - ctrack->pos.server.seq0;
+			if (rseq)
 			{
-				bool bFail = false;
+				char client_ip_port[48];
+				if (*params.hostlist_auto_debuglog)
+					ntop46_port((struct sockaddr*)&dst, client_ip_port, sizeof(client_ip_port));
+				else
+					*client_ip_port = 0;
+				if (seq_within(ctrack->pos.server.seq_last, ctrack->pos.server.seq0 + 1, ctrack->pos.server.seq0 + dp->hostlist_auto_incoming_maxseq))
+				{
+					bool bFail = false;
 
-				if (dis->tcp->th_flags & TH_RST)
-				{
-					DLOG("incoming RST detected for hostname %s rseq %u\n", ctrack->hostname, rseq);
-					HOSTLIST_DEBUGLOG_APPEND("%s : profile %u (%s) : client %s : proto %s : rseq %u : incoming RST", ctrack->hostname, ctrack->dp->n, PROFILE_NAME(dp), client_ip_port, l7proto_str(l7proto), rseq);
-					bFail = true;
-				}
-				else if (dis->len_payload && l7payload == L7P_HTTP_REPLY)
-				{
-					DLOG("incoming HTTP reply detected for hostname %s rseq %u\n", ctrack->hostname, rseq);
-					bFail = HttpReplyLooksLikeDPIRedirect(dis->data_payload, dis->len_payload, ctrack->hostname);
+					if (dis->tcp->th_flags & TH_RST)
+					{
+						DLOG("incoming RST detected for hostname %s rseq %u\n", ctrack->hostname, rseq);
+						HOSTLIST_DEBUGLOG_APPEND("%s : profile %u (%s) : client %s : proto %s : rseq %u : incoming RST", ctrack->hostname, ctrack->dp->n, PROFILE_NAME(dp), client_ip_port, l7proto_str(l7proto), rseq);
+						bFail = true;
+					}
+					else if (dis->len_payload && l7payload == L7P_HTTP_REPLY)
+					{
+						DLOG("incoming HTTP reply detected for hostname %s rseq %u\n", ctrack->hostname, rseq);
+						bFail = HttpReplyLooksLikeDPIRedirect(dis->data_payload, dis->len_payload, ctrack->hostname);
+						if (bFail)
+						{
+							DLOG("redirect to another domain detected. possibly DPI redirect.\n");
+							HOSTLIST_DEBUGLOG_APPEND("%s : profile %u (%s) : client %s : proto %s : rseq %u : redirect to another domain", ctrack->hostname, ctrack->dp->n, PROFILE_NAME(dp), client_ip_port, l7proto_str(l7proto), rseq);
+						}
+						else
+							DLOG("local or in-domain redirect detected. it's not a DPI redirect.\n");
+					}
 					if (bFail)
 					{
-						DLOG("redirect to another domain detected. possibly DPI redirect.\n");
-						HOSTLIST_DEBUGLOG_APPEND("%s : profile %u (%s) : client %s : proto %s : rseq %u : redirect to another domain", ctrack->hostname, ctrack->dp->n, PROFILE_NAME(dp), client_ip_port, l7proto_str(l7proto), rseq);
+						auto_hostlist_failed(dp, ctrack->hostname, ctrack->hostname_is_ip, client_ip_port, l7proto);
+						ctrack->failure_detect_finalized = true;
 					}
-					else
-						DLOG("local or in-domain redirect detected. it's not a DPI redirect.\n");
 				}
-				if (bFail)
+				else
 				{
-					auto_hostlist_failed(dp, ctrack->hostname, ctrack->hostname_is_ip, client_ip_port, l7proto);
+					// incoming_maxseq exceeded. treat connection as successful
+					auto_hostlist_reset_fail_counter(dp, ctrack->hostname, client_ip_port, l7proto);
 					ctrack->failure_detect_finalized = true;
 				}
-			}
-			else
-			{
-				// incoming_maxseq exceeded. treat connection as successful
-				auto_hostlist_reset_fail_counter(dp, ctrack->hostname, client_ip_port, l7proto);
-				ctrack->failure_detect_finalized = true;
 			}
 		}
 	}
@@ -1145,7 +1148,6 @@ static uint8_t dpi_desync_tcp_packet_play(
 		struct blob_collection_head *fake;
 		uint8_t *p, *phost = NULL;
 		int i;
-
 		bool bHaveHost = false, bHostIsIp = false;
 
 		if (replay_piece_count)
