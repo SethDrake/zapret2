@@ -181,7 +181,7 @@ nft delete table inet ztest
 Адреса и порты источника внутренней сети сохраняются. Атаки на проходящий трафик, ломающие NAT, невозможны, но возможны с самой системы.
 
 ```
-IFACE_WAN=br0
+IFACE_WAN=wan
 MAX_PKT_IN=15
 MAX_PKT_OUT=15
 FWMARK=0x40000000
@@ -200,7 +200,7 @@ for tables in iptables ip6tables; do
 	$tables -t mangle -C PREROUTING -j ztest_pre 2>/dev/null || $tables -t mangle -A PREROUTING -j ztest_pre
 	$tables -t mangle -I ztest_post -o $IFACE_WAN -p tcp -m multiport --dports $PORTS_TCP -m connbytes --connbytes-dir=original --connbytes-mode=packets --connbytes 1:$MAX_PKT_OUT -m mark ! --mark $FWMARK/$FWMARK -j NFQUEUE --queue-num $QNUM --queue-bypass
 	$tables -t mangle -I ztest_post -o $IFACE_WAN -p udp -m multiport --dports $PORTS_UDP -m connbytes --connbytes-dir=original --connbytes-mode=packets --connbytes 1:$MAX_PKT_OUT -m mark ! --mark $FWMARK/$FWMARK -j NFQUEUE --queue-num $QNUM --queue-bypass
-#	$tables -t mangle -I ztest_pre -i $IFACE_WAN -p tcp -m multiport --sports $PORTS_TCP -m connbytes --connbytes-dir=reply --connbytes-mode=packets --connbytes 1:$MAX_PKT_IN -m mark ! --mark $FWMARK/$FWMARK -j NFQUEUE --queue-num $QNUM --queue-bypass
+	$tables -t mangle -I ztest_pre -i $IFACE_WAN -p tcp -m multiport --sports $PORTS_TCP -m connbytes --connbytes-dir=reply --connbytes-mode=packets --connbytes 1:$MAX_PKT_IN -m mark ! --mark $FWMARK/$FWMARK -j NFQUEUE --queue-num $QNUM --queue-bypass
 	$tables -t mangle -I ztest_pre -i $IFACE_WAN -p tcp -m multiport --sports $PORTS_TCP --tcp-flags syn,ack syn,ack -m mark ! --mark $FWMARK/$FWMARK -j NFQUEUE --queue-num $QNUM --queue-bypass
 	$tables -t mangle -I ztest_pre -i $IFACE_WAN -p tcp -m multiport --sports $PORTS_TCP --tcp-flags fin fin -m mark ! --mark $FWMARK/$FWMARK -j NFQUEUE --queue-num $QNUM --queue-bypass
 	$tables -t mangle -I ztest_pre -i $IFACE_WAN -p tcp -m multiport --sports $PORTS_TCP --tcp-flags rst rst -m mark ! --mark $FWMARK/$FWMARK -j NFQUEUE --queue-num $QNUM --queue-bypass
