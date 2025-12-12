@@ -410,6 +410,15 @@ static bool reasm_start(t_ctrack *ctrack, t_reassemble *reasm, uint8_t proto, ui
 static bool reasm_client_start(t_ctrack *ctrack, uint8_t proto, size_t sz, size_t szMax, const uint8_t *data_payload, size_t len_payload)
 {
 	if (!ctrack) return false;
+	if (proto==IPPROTO_TCP && ctrack->pos.server.winsize_calc < szMax)
+	{
+		// this is rare but possible situation
+		// server gave us too small tcp window
+		// client will not send all pieces of reasm
+		// if we drop packets and wait for next pieces we will see nothing but retransmissions
+		DLOG("reasm cancelled because server window size %u is smaller than expected reasm size %u\n", ctrack->pos.server.winsize_calc, sz);
+		return false;
+	}
 	return reasm_start(ctrack, &ctrack->reasm_client, proto, (proto == IPPROTO_TCP) ? ctrack->pos.client.seq_last : 0, sz, szMax, data_payload, len_payload);
 }
 static bool reasm_feed(t_ctrack *ctrack, t_reassemble *reasm, uint8_t proto, uint32_t seq, const uint8_t *data_payload, size_t len_payload)
