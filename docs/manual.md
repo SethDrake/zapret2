@@ -325,6 +325,9 @@ pass out quick on $IFACE_WAN proto tcp to port { $PORTS_TCP } divert-packet port
 pass out quick on $IFACE_WAN proto udp to port { $PORTS_UDP } divert-packet port $PORT_DIVERT
 ```
 
+> [!CAUTION]
+> В FreeBSD другая версия pf и немного другой синтаксис. Однако, фактически pf в FreeBSD сломан, поскольку не работает предотвращение зацикливания. В MacOS хотя и используется pf, ipdivert из ядра убран, правила работать не будут.
+
 ## Перехват трафика в ядре Windows
 
 В Windows нет встроенных средств для перехвата трафика. Используется стороннее решение - драйвер windivert.
