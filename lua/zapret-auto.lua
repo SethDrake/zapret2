@@ -262,7 +262,7 @@ end
 -- arg: failure_detector - failure detector function name
 -- args for failure detector - see standard_failure_detector or your own detector
 -- args for success detector - see standard_success_detector or your own detector
--- test case: nfqws2 --qnum 200 --debug --lua-init=@zapret-lib.lua --lua-init=@zapret-auto.lua --in-range=-s1 --lua-desync=circular --lua-desync=argdebug:strategy=1 --lua-desync=argdebug:strategy=2
+-- test case: nfqws2 --qnum 200 --debug --lua-init=@zapret-lib.lua --lua-init=@zapret-auto.lua --in-range=-s34228 --lua-desync=circular --lua-desync=argdebug:strategy=1 --lua-desync=argdebug:strategy=2
 function circular(ctx, desync)
 	local function count_strategies(hrec)
 		if not hrec.ctstrategy then
