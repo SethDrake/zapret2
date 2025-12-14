@@ -214,7 +214,7 @@ function automate_failure_check(desync, hrec, crec)
 	local failure_detector, success_detector
 	if desync.arg.failure_detector then
 		if type(_G[desync.arg.failure_detector])~="function" then
-			error("automate_failure_check: invalid failure detector function '"..desync.arg.failure_detector.."'")
+			error("automate: invalid failure detector function '"..desync.arg.failure_detector.."'")
 		end
 		failure_detector = _G[desync.arg.failure_detector]
 	else
@@ -222,7 +222,7 @@ function automate_failure_check(desync, hrec, crec)
 	end
 	if desync.arg.success_detector then
 		if type(_G[desync.arg.success_detector])~="function" then
-			error("automate_failure_check: invalid success detector function '"..desync.arg.success_detector.."'")
+			error("automate: invalid success detector function '"..desync.arg.success_detector.."'")
 		end
 		success_detector = _G[desync.arg.success_detector]
 	else
@@ -231,13 +231,13 @@ function automate_failure_check(desync, hrec, crec)
 
 	if success_detector(desync, crec) then
 		crec.nocheck = true
-		DLOG("automate_failure_check: success detected")
+		DLOG("automate: success detected")
 		automate_failure_counter_reset(hrec)
 		return false
 	end
 	if failure_detector(desync, crec) then
 		crec.nocheck = true
-		DLOG("automate_failure_check: failure detected")
+		DLOG("automate: failure detected")
 		local fails = tonumber(desync.arg.fails) or 3
 		local maxtime = tonumber(desync.arg.time) or 60
 		return automate_failure_counter(hrec, crec, fails, maxtime)
