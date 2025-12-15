@@ -3004,6 +3004,7 @@ static void lua_init_const(void)
 		{"IPTOS_ECN_ECT1",IPTOS_ECN_ECT1},
 		{"IPTOS_ECN_ECT0",IPTOS_ECN_ECT0},
 		{"IPTOS_ECN_CE",IPTOS_ECN_CE},
+		{"IPTOS_DSCP_MASK",0xFC},
 		{"IP6F_MORE_FRAG",0x0001}, // in ip6.h it's defined depending of machine byte order
 
 		{"IPPROTO_IP",IPPROTO_IP},
