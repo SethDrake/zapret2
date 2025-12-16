@@ -715,42 +715,48 @@ static int luacall_instance_cutoff(lua_State *L)
 
 	LUA_STACK_GUARD_ENTER(L)
 
-	const t_lua_desync_context *ctx = lua_desync_ctx();
+	if (lua_isnil(L,1))
+		// this can happen in orchestrated function. they do not have their own ctx and they cant cutoff
+		DLOG("instance cutoff not possible because missing ctx\n");
+	else
+	{
+		const t_lua_desync_context *ctx = lua_desync_ctx();
 
-	int argc=lua_gettop(L);
-	bool bIn,bOut;
-	if (argc>=2 && lua_type(L,2)!=LUA_TNIL)
-	{
-		luaL_checktype(L,2,LUA_TBOOLEAN);
-		bOut = lua_toboolean(L,2);
-		bIn = !bOut;
-	}
-	else
-		bIn = bOut = true;
-	if (ctx->ctrack)
-	{
-		DLOG("instance cutoff for '%s' in=%u out=%u\n",ctx->instance,bIn,bOut);
-		lua_rawgeti(L,LUA_REGISTRYINDEX,ctx->ctrack->lua_instance_cutoff);
-		lua_getfield(L,-1,ctx->instance);
-		if (!lua_istable(L,-1))
+		int argc=lua_gettop(L);
+		bool bIn,bOut;
+		if (argc>=2 && lua_type(L,2)!=LUA_TNIL)
 		{
-			lua_pop(L,1);
-			lua_pushf_table(ctx->instance);
+			luaL_checktype(L,2,LUA_TBOOLEAN);
+			bOut = lua_toboolean(L,2);
+			bIn = !bOut;
+		}
+		else
+			bIn = bOut = true;
+		if (ctx->ctrack)
+		{
+			DLOG("instance cutoff for '%s' in=%u out=%u\n",ctx->instance,bIn,bOut);
+			lua_rawgeti(L,LUA_REGISTRYINDEX,ctx->ctrack->lua_instance_cutoff);
 			lua_getfield(L,-1,ctx->instance);
-		}
-		lua_rawgeti(L,-1,ctx->dp->n);
-		if (!lua_istable(L,-1))
-		{
-			lua_pop(L,1);
-			lua_pushi_table(ctx->dp->n);
+			if (!lua_istable(L,-1))
+			{
+				lua_pop(L,1);
+				lua_pushf_table(ctx->instance);
+				lua_getfield(L,-1,ctx->instance);
+			}
 			lua_rawgeti(L,-1,ctx->dp->n);
+			if (!lua_istable(L,-1))
+			{
+				lua_pop(L,1);
+				lua_pushi_table(ctx->dp->n);
+				lua_rawgeti(L,-1,ctx->dp->n);
+			}
+			if (bOut) lua_pushi_bool(0,true);
+			if (bIn) lua_pushi_bool(1,true);
+			lua_pop(L,3);
 		}
-		if (bOut) lua_pushi_bool(0,true);
-		if (bIn) lua_pushi_bool(1,true);
-		lua_pop(L,3);
+		else
+			DLOG("instance cutoff requested for '%s' in=%u out=%u but not possible without conntrack\n",ctx->instance,bIn,bOut);
 	}
-	else
-		DLOG("instance cutoff requested for '%s' in=%u out=%u but not possible without conntrack\n",ctx->instance,bIn,bOut);
 
 	LUA_STACK_GUARD_RETURN(L,0)
 }
