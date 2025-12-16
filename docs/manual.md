@@ -1787,3 +1787,276 @@ function execution_plan_cancel(ctx)
 
 Однократная отмена выполнения всех следующих инстансов внутри профиля.
 Инстанс, выполняющий отмену, берет на себя координацию дальнейших действий и называется оркестратором.
+
+
+# Базовая библиотека функций zapret-lib.lua
+
+Почти каждая функция имеет подробные комментарии и своем предназначении и параметрах.
+Чтение LUA кода и комментариев позволит лучше понять для чего нужна конкретная функция и как ее вызывать.
+
+## Базовые desync функции
+
+Их можно в готовом виде использовать в `--lua-desync`.
+
+```
+function luaexec(ctx, desync)
+```
+
+Выполнить произвольный LUA код, заданный в аргументе "code".
+Код может адресовать таблицу desync - она временно присваивается глобальной переменной desync,
+а по завершению кода глобальная переменная убирается.
+
+Пример : `--lua-desync=luaexec:code="desync.rnd=brandom(math.random(5,10))"
+
+```
+function pass(ctx, desync)
+```
+
+Ничего не делать, только вывести в debug log сообщение "pass".
+
+```
+function pktdebug(ctx, desync)
+```
+
+Вывести структуру desync в debug log.
+
+```
+function argdebug(ctx, desync)
+```
+
+Вывести таблицу аргументов в debug log.
+
+```
+function posdebug(ctx, desync)
+```
+
+Вывести в debug log информацию о текущих conntrack позициях по прямому и обратному направлению.
+
+```
+function desync_orchestrator_example(ctx, desync)
+```
+
+Тестовый окрестратор. Ничего специального не делает, только выполняет execution plan в исходном виде.
+
+
+## Служебные функции
+
+```
+function var_debug(v)
+```
+
+Выводит в debug log информацию о параметре v - тип и значение.
+Если это таблица, происходит рекурсивный проход по вложенным значениям и таблицам, информация представляется в виде дерева.
+
+```
+function deepcopy(orig)
+```
+
+Копирует переменную orig.
+Основная цель - создать копию таблицы со всеми подтаблицами рекурсивно.
+Таблицы в LUA передаются по ссылке. Через какую бы переменную вы не изменяли таблицу, таблица существует только одна.
+Изменения будут видны через любые переменные, на нее ссылающиеся.
+Чтобы сделать реальную копию, нужно создать новую таблицу и присвоить ей все поля исходной таблицы,
+кроме подтаблиц. Подтаблицы надо точно так же копировать рекурсивно. Этим и занимается функция deepcopy.
+
+Простые типы в LUA присваиваются по значению. Все строки хранятся в едином пуле, где исключено дублирование по содержимому.
+Строковые переменные ссылаются на пул. Строки менять невозможно, они - immutable, можно только присваивать другие строки.
+Если новая строка будет иной по значению, и ее нет в пуле, будет создан новый элемент пула. Иначе будет присвоена ссылка
+на существующий элемент.
+
+```
+function logical_xor(a,b)
+```
+
+Возвращает результат логического xor a и b.  `result = a and not b or not a and b`
+
+## Работа со строками
+
+```
+function in_list(s, v)
+```
+
+Включена ли строка v в список строк через запятую s. Например, `abc` включено в список `xyz,abc,12345`.
+
+```
+function find_next_line(s, pos)
+```
+
+Работает с многострочным текстом s. Строки разделяются EOL - '\n' или '\r\n'.
+Возвращается 2 значения - позиция начала строки и начала следующей строки, либо конца текста s, если строк больше нет.
+
+## Обслуживание raw string
+
+```
+function string2hex(s)
+function has_nonprintable(s)
+function make_readable(s)
+function str_or_hex(s)
+function hexdump(s, max)
+function hexdump_dlog(s)
+function pattern(pat, offset, len)
+```
+
+* string2hex преобразует raw строку в символьное hex представление. байты разделены пробелами. "\xAB\xCD\x01\0x2" => "AB CD 01 02"
+* has_nonprintable возвращает true, если в строке s есть символы, кроме 0x20-0x7F, '\n', '\r', '\t'
+* make_readable заменяет все символы, кроме 0x20-0x7F, точками
+* str_or_hex возвращает саму строку, если has_nonpritable(s) = false, иначе string2hex(s)
+* hexdump преобразует начальные байт raw строки s (до max байт) в hex строку + символь
+* hexdump_dlog выполняет hexdump и выводит результат в debug log
+* pattern - это часть условно бесконечно повторяющейся raw строки pat, начинающаяся с позиции offset (нумерация с 1) и длиной len
+
+```
+function blob(desync, name, def)
+function blob_or_def(desync, name, def)
+```
+
+* blob - стандартная функция получения блоба. Если name начинается с `0x`, то дальнейшее интерпретируется как HEX строка.
+Иначе читается переменная name сначала в desync. Если там нет, берется глобальная переменная.
+Если и ее нет, берется значение def.
+* blob_or_def - возвращает def, если name = nil, иначе аналогично blob
+
+## Обслуживание tcp sequence numbers
+
+```
+function seq_ge(seq1, seq2)
+function seq_gt(seq1, seq2)
+function seq_lt(seq1, seq2)
+function seq_le(seq1, seq2)
+function seq_within(seq, seq_low, seq_hi)
+function is_retransmission(desync)
+```
+
+* seq_{ge|gt|lt|le} выполняет сравнение sequence numbers в пределах 2 GB. если разница больше - результат неверный. ge означает `>=`, gt `>`, le `<=`, lt `<`.
+* seq_within - `seq_low <= seq <= seq_hi`
+* is_retransmission - является ли текущий диссект tcp ретрансмиссией
+
+### Обслуживание позиций
+
+```
+function pos_counter_overflow(desync, mode, reverse)
+function pos_get_pos(track_pos, mode)
+function pos_get(desync, mode, reverse)
+function pos_check_from(desync, range)
+function pos_check_to(desync, range)
+function pos_check_range(desync, range)
+function pos_range_str(range)
+function pos_str(desync, pos)
+```
+
+Параметр mode содержит строку с одной буквой режима счетчика - 'a','x','n','d','b','s','p'.
+По умолчанию функции работают с текущим направлением. Если есть параметр reverse и он задан как true, берется противоположное направление.
+
+* pos_counter_overflow - true, если mode = 's' или 'p' и произошел выход tcp sequence за пределы 2 GB. Счетчики больше не могут использоваться.
+* pos_get_pos - получить значение счетчика mode из таблицы счетчиков `track_pos`. `track_pos` может быть `desync.track.pos.{direct,reverse,client,server}`
+* pos_get - получить значение счетчика mode по текущему или противоположному направлению
+* pos_check_from - проверить удовлетворяет ли текущая позиция нижней границе range
+* pos_check_to - проверить удовлетворяет ли текущая позиция верхней границе range
+* pos_range - проверить удовлетворяет ли текущая позиция range (нижней и верхней границе)
+* pos_str - преобразование таблицы позиции pos в стандартную строковую форму `<mode><pos>`, например `s100`.
+* pos_range_str - преобразование таблицы диапазона range в стандартную строковую форму `<mode_from><pos_from>(-<)<mode_to><pos_to>`, например `d1-p5000`.
+
+### Диссекция
+
+Диссекция - это разбор некоторого сообщения для представления в структурированной форме.
+
+```
+function dissect_url(url)
+```
+
+Возвращает таблицу, где разобраны части URL вида `proto://creds@domain:port/uri`.
+Если какая-либо из частей отсутствует, соответствующего поля нет в таблице.
+
+```
+function dissect_nld(domain, level)
+```
+
+Получение домена уровня level из domain.  level=2 'www.microsoft.com' => 'microsoft.com'.
+Если уровня level нет, возвращается nil.
+
+```
+function http_dissect_req(http)
+```
+
+Разборка HTTP запроса http. http представляет собой многострочный текст.
+Разборка представляет собой таблицу с вложенными подтаблицами.
+В заголовках выдаются позиции начала и конца названия заголовка и самого значения.
+Все позиции - внутри строки http.
+
+<details> 
+  <summary><b>Пример разборки http запроса `http://testhost.com/testuri`</b></summary>
+<pre>
+.uri
+  string /test_uri
+.headers
+  .content-length
+    .header
+      string Content-Length
+    .value
+      string 330
+    .pos_start
+      number 43
+    .pos_end
+      number 61
+    .pos_header_end
+      number 56
+    .pos_value_start
+      number 59
+  .host
+    .header
+      string Host
+    .value
+      string testhost.com
+    .pos_start
+      number 24
+    .pos_end
+      number 41
+    .pos_header_end
+      number 27
+    .pos_value_start
+      number 30
+.method
+  string GET
+</pre></details>
+
+```
+function http_dissect_reply(http)
+```
+
+Разборка HTTP ответа http. http представляет собой многострочный текст.
+Разборка представляет собой таблицу с вложенными подтаблицами.
+В заголовках выдаются позиции начала и конца названия заголовка и самого значения.
+Все позиции - внутри строки http.
+
+<details> 
+  <summary><b>Пример разборки http ответа</b></summary>
+<pre>
+.code
+  number 200
+.headers
+  .content-type
+    .pos_header_end
+      number 28
+    .pos_value_start
+      number 31
+    .header
+      string Content-Type
+    .value
+      string text/html
+    .pos_start
+      number 17
+    .pos_end
+      number 39
+  .content-length
+    .pos_header_end
+      number 54
+    .pos_value_start
+      number 57
+    .header
+      string Content-Length
+    .value
+      string 650
+    .pos_start
+      number 41
+    .pos_end
+      number 59
+</pre></details>
