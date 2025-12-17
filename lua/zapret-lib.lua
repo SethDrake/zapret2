@@ -76,7 +76,7 @@ end
 -- arg: pattern - substring for search inside reasm_data or desync.dis.payload
 -- arg: payload - set desync.l7payload to this if detected
 -- arg: undetected - set desync.l7payload to this if not detected
--- test case : nfqws2 --qnum 200 --debug --lua-init=@zapret-lib.lua --lua-init=@zapret-antidpi.lua --lua-init=@zapret-auto.lua --lua-desync=detect_payload_str:pattern=1234:payload=my --lua-desync=fake:blob=0x1234:payload=my
+-- test case : --lua-desync=detect_payload_str:pattern=1234:payload=my --lua-desync=fake:blob=0x1234:payload=my
 function detect_payload_str(ctx, desync)
 	if not desync.arg.pattern then
 		error("detect_payload_str: missing 'pattern'")
@@ -227,7 +227,7 @@ function replay_execution_plan(desync)
 end
 -- this function demonstrates how to stop execution of upcoming desync instances and take over their job
 -- this can be used, for example, for orchestrating conditional processing without modifying of desync functions code
--- test case : nfqws2 --qnum 200 --debug --lua-init=@zapret-lib.lua --lua-desync=desync_orchestrator_example --lua-desync=pass --lua-desync=pass
+-- test case : --lua-desync=desync_orchestrator_example --lua-desync=pass --lua-desync=pass
 function desync_orchestrator_example(ctx, desync)
 	DLOG("orchestrator: taking over upcoming desync instances")
 	orchestrate(ctx, desync)

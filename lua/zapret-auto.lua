@@ -289,7 +289,7 @@ end
 -- args for failure detector - see standard_failure_detector or your own detector
 -- args for success detector - see standard_success_detector or your own detector
 -- args for hostkey generator - see standard_hostkey or your own generator
--- test case: nfqws2 --qnum 200 --debug --lua-init=@zapret-lib.lua --lua-init=@zapret-auto.lua --in-range=-s34228 --lua-desync=circular --lua-desync=argdebug:strategy=1 --lua-desync=argdebug:strategy=2
+-- test case: --in-range=-s34228 --lua-desync=circular --lua-desync=argdebug:strategy=1 --lua-desync=argdebug:strategy=2
 function circular(ctx, desync)
 	local function count_strategies(hrec)
 		if not hrec.ctstrategy then
@@ -377,7 +377,7 @@ function cond_random(desync)
 	return math.random(0,99)<(tonumber(desync.arg.percent) or 50)
 end
 -- this iif function detects packets having 'arg.pattern' string in their payload
--- test case : nfqws2 --qnum 200 --debug --lua-init=@zapret-lib.lua --lua-init=@zapret-auto.lua --lua-desync=condition:iff=cond_payload_str:pattern=1234 --lua-desync=argdebug:testarg=1 --lua-desync=argdebug:testarg=2:morearg=xyz
+-- test case : --lua-desync=condition:iff=cond_payload_str:pattern=1234 --lua-desync=argdebug:testarg=1 --lua-desync=argdebug:testarg=2:morearg=xyz
 -- test case (true)  : echo aaz1234zzz | ncat -4u 1.1.1.1 443
 -- test case (false) : echo aaze124zzz | ncat -4u 1.1.1.1 443
 function cond_payload_str(desync)
@@ -399,7 +399,7 @@ end
 -- for example, this can be used by custom protocol detectors
 -- arg: iff - condition function. takes desync as arg and returns bool. (cant use 'if' because of reserved word)
 -- arg: neg - invert condition function result
--- test case : nfqws2 --qnum 200 --debug --lua-init=@zapret-lib.lua --lua-init=@zapret-auto.lua --lua-desync=condition:iff=cond_random --lua-desync=argdebug:testarg=1 --lua-desync=argdebug:testarg=2:morearg=xyz
+-- test case : --lua-desync=condition:iff=cond_random --lua-desync=argdebug:testarg=1 --lua-desync=argdebug:testarg=2:morearg=xyz
 function condition(ctx, desync)
 	require_iff(desync, "condition")
 	orchestrate(ctx, desync)
@@ -415,7 +415,7 @@ end
 -- can be used with other orchestrators to stop execution conditionally
 -- arg: iff - condition function. takes desync as arg and returns bool. (cant use 'if' because of reserved word)
 -- arg: neg - invert condition function result
--- test case : nfqws2 --qnum 200 --debug --lua-init=@zapret-lib.lua --lua-init=@zapret-auto.lua --in-range=-s1 --lua-desync=circular --lua-desync=stopif:iff=cond_random:strategy=1 --lua-desync=argdebug:strategy=1 --lua-desync=argdebug:strategy=2
+-- test case : --in-range=-s1 --lua-desync=circular --lua-desync=stopif:iff=cond_random:strategy=1 --lua-desync=argdebug:strategy=1 --lua-desync=argdebug:strategy=2
 function stopif(ctx, desync)
 	require_iff(desync, "stopif")
 	orchestrate(ctx, desync)
@@ -426,4 +426,33 @@ function stopif(ctx, desync)
 		-- do not do anything. allow other orchestrator to finish the plan
 		DLOG("stopif: false")
 	end
+end
+
+-- repeat following 'instances` `repeats` times, execute others with no tampering
+-- arg: instances - number of following instances to be repeated. 1 by default
+-- arg: repeats - number of repeats
+-- test case : --lua-desync=repeater:repeats=2:instances=2 --lua-desync=argdebug:v=1 --lua-desync=argdebug:v=2 --lua-desync=argdebug:v=3
+function repeater(ctx, desync)
+	local repeats = tonumber(desync.arg.repeats)
+	if not repeats then
+		error("repeat: missing 'repeats'")
+	end
+	local instances = tonumber(desync.arg.instances) or 1
+	orchestrate(ctx, desync)
+	if instances > #desync.plan then
+		instances = #desync.plan
+	end
+	local verdict = VERDICT_PASS
+	for r=1,repeats do
+		DLOG("repeater: "..r.."/"..repeats)
+		for i=1,instances do
+			verdict = plan_instance_execute(desync, verdict, desync.plan[i])
+		end
+	end
+	-- remove repeated instances
+	for i=1,instances do
+		table.remove(desync.plan, 1)
+	end
+	-- replay the rest
+	return verdict_aggregate(verdict, replay_execution_plan(desync))
 end

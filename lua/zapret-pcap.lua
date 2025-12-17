@@ -16,7 +16,7 @@ function pcap_write(file, raw)
 	pcap_write_packet(file, raw)
 end
 
--- test case : nfqws2 --qnum 200 --debug --lua-init=@zapret-lib.lua --lua-init=@zapret-pcap.lua --writeable=zdir --in-range=a --lua-desync=pcap:file=test.pcap
+-- test case : --writeable=zdir --in-range=a --lua-desync=pcap:file=test.pcap
 -- arg : file=<filename> - file for storing pcap data. if --writeable is specified and filename is relative - append filename to writeable path
 -- arg : keep - do not overwrite file, append packets to existing
 function pcap(ctx, desync)
