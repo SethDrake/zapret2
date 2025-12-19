@@ -3247,8 +3247,8 @@ http редиректом от DPI считается то же самое , ч�
 function circular(ctx, desync)
 ```
 
-* arg: (standard host storage)(#automate_host_record)
-* arg: (standard checker)(#automate_failure_check)
+* arg: [standard host storage](#automate_host_record)
+* arg: [standard checke](#automate_failure_check)
 * arg: (только для стандартного детектора) (standard success detector)(#standard_success_detector)
 * arg: (только для стандартного детектора) (standard failure detector)(#standard_failure_detector)
 
