@@ -454,6 +454,7 @@ function multidisorder_send(desync, data, seqovl, pos)
 			return VERDICT_PASS
 		end
 	end
+	return VERDICT_DROP
 end
 
 -- nfqws1 : "--dpi-desync=multidisorder"
