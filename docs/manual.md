@@ -3779,8 +3779,8 @@ nfqws2 может работать и самостоятельно без скр
 | DESYNC_MARK_POSTNAT | марк-бит для пометки соединений, идущих по схеме POSTNAT |
 | NFQWS2_ENABLE | включение стандартного режима nfqws2 |
 | NFQWS2_PORTS_TCP<br>NFQWS2_PORTS_UDP | порты перехвата для стандартного режима nfqws2 |
-| NFQWS2_TCP_PKT_OUT<br>NFQWS2_TCP_PKT_IN<br>NFQWS2_UDP_PKT_OUT<br>NFQWS2_UDP_PKT_IN | ограничители connbytes по tcp/udp и направлению |
-| NFQWS2_PORTS_TCP_KEEPALIVE<br>NFQWS2_PORTS_UDP_KEEPALIVE | список портов tcp/udp, для которых выключается ограничитель connbytes по исходящему направлению |
+| NFQWS2_TCP_PKT_OUT<br>NFQWS2_TCP_PKT_IN<br>NFQWS2_UDP_PKT_OUT<br>NFQWS2_UDP_PKT_IN | ограничители connbytes по tcp/udp и направлению для стандартного режима nfqws2 |
+| NFQWS2_PORTS_TCP_KEEPALIVE<br>NFQWS2_PORTS_UDP_KEEPALIVE | список портов tcp/udp, для которых выключается ограничитель connbytes по исходящему направлению для стандартного режима nfqws2 |
 | NFQWS2_OPT | параметры командной строки стандартного режима nfqws2 |
 | MODE_FILTER | режим фильтрации : none,ipset,hostlist,autohostlist |
 | FLOWOFFLOAD | режим offload : donttouch,none,software,hardware |
