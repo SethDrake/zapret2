@@ -4259,8 +4259,9 @@ rc-update add zapret2
 2. `systemctl daemon-reload`
 3. `mkdir /etc/zapret2`
 4. Создаете в `/etc/zapret2` текстовый файл с параметрами коммандной строки nfqws2. Файл называется INSTANCE.conf, где INSTANCE - название инстанса, которое вы придумываете сами.
-5. Запуск : `systemctl start nfqws2@INSTANCE`
-6. Останов : `systemctl stop nfqws2@INSTANCE`
-7. Перезапуск : `systemctl restart nfqws2@INSTANCE`
+5. Автозапуск : `systemctl enable nfqws2@INSTANCE`
+6. Запуск : `systemctl start nfqws2@INSTANCE`
+7. Останов : `systemctl stop nfqws2@INSTANCE`
+8. Перезапуск : `systemctl restart nfqws2@INSTANCE`
 
 Этот способ не поднимает правила ip/nf tables - вам это придется сделать отдельно, как и написать сами правила. Правила нужно прописать куда-то, чтобы они поднимались после старта системы. Например, можно сделать отдельный systemd unit с запуском шелл скрипта или `nft -f /path/to/file.nft`.
