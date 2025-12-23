@@ -1355,6 +1355,9 @@ mss дублируется в поле `desync.tcp_mss` независимо о�
 | IPTOS_ECN_CE1 | number | Congestion Experienced | 0x03 |
 | IPTOS_DSCP_MASK | number | битовая маска поля ip_tos, соответствующая DSCP | 0xFC |
 | IP6F_MORE_FRAG | number | бит "More fragment" поля ip6f_offlg из ipv6 fragment header | 0x0001 |
+| IP6 | number | бит "More fragment" поля ip6f_offlg из ipv6 fragment header | 0x0001 |
+| IPV6_FLOWLABEL_MASK | number | flow label в ip6_flow | 0x000FFFFF |
+| IPV6_FLOWINFO_MASK | number | flow label, traffic class в ip6_flow | 0x0FFFFFFF |
 | IPPROTO_IP<br>IPPROTO_IPV6<br>IPPROTO_ICMP<br>IPPROTO_TCP<br>IPPROTO_UDP<br>IPPROTO_ICMPV6<br>IPPROTO_HOPOPTS<br>IPPROTO_ROUTING<br>IPPROTO_FRAGMENT<br>IPPROTO_AH<br>IPPROTO_ESP<br>IPPROTO_DSTOPTS<br>IPPROTO_MH<br>IPPROTO_HIP<br>IPPROTO_SHIM6<br>IPPROTO_NONE | number | [номера IP протоколов](https://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml) | используются в ipv4 и ipv6 |
 
 ### Стандартные блобы
