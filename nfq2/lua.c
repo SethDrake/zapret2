@@ -70,16 +70,16 @@ static int luacall_bitlshift(lua_State *L)
 {
 	lua_check_argc(L,"bitlshift",2);
 	int64_t v=(int64_t)luaL_checklint(L,1);
-	if (v>0xFFFFFFFF || v<-(int64_t)0xFFFFFFFF) luaL_error(L, "out of range");
-	lua_pushlint(L,((uint32_t)v) << luaL_checkinteger(L,2));
+	if (v>0xFFFFFFFFFFFF || v<-(int64_t)0xFFFFFFFFFFFF) luaL_error(L, "out of range");
+	lua_pushlint(L,(((uint64_t)v) << luaL_checkinteger(L,2)) & 0xFFFFFFFFFFFF);
 	return 1;
 }
 static int luacall_bitrshift(lua_State *L)
 {
 	lua_check_argc(L,"bitrshift",2);
 	int64_t v=(int64_t)luaL_checklint(L,1);
-	if (v>0xFFFFFFFF || v<-(int64_t)0xFFFFFFFF) luaL_error(L, "out of range");
-	lua_pushlint(L,((uint32_t)v) >> luaL_checkinteger(L,2));
+	if (v>0xFFFFFFFFFFFF || v<-(int64_t)0xFFFFFFFFFFFF) luaL_error(L, "out of range");
+	lua_pushlint(L,((uint64_t)v) >> luaL_checkinteger(L,2));
 	return 1;
 }
 static int luacall_bitand(lua_State *L)
@@ -87,12 +87,12 @@ static int luacall_bitand(lua_State *L)
 	lua_check_argc_range(L,"bitand",2,100);
 	int argc = lua_gettop(L);
 	int64_t v;
-	uint32_t sum=0xFFFFFFFF;
+	uint64_t sum=0xFFFFFFFFFFFF;
 	for(int i=1;i<=argc;i++)
 	{
 		v=(int64_t)luaL_checklint(L,i);
-		if (v>0xFFFFFFFF || v<-(int64_t)0xFFFFFFFF) luaL_error(L, "out of range");
-		sum&=(uint32_t)v;
+		if (v>0xFFFFFFFFFFFF || v<-(int64_t)0xFFFFFFFFFFFF) luaL_error(L, "out of range");
+		sum&=(uint64_t)v;
 	}
 	lua_pushlint(L,sum);
 	return 1;
@@ -102,33 +102,60 @@ static int luacall_bitor(lua_State *L)
 	lua_check_argc_range(L,"bitor",1,100);
 	int argc = lua_gettop(L);
 	int64_t v;
-	uint32_t sum=0;
+	uint64_t sum=0;
 	for(int i=1;i<=argc;i++)
 	{
 		v=(int64_t)luaL_checklint(L,i);
-		if (v>0xFFFFFFFF || v<-(int64_t)0xFFFFFFFF) luaL_error(L, "out of range");
-		sum|=(uint32_t)v;
+		if (v>0xFFFFFFFFFFFF || v<-(int64_t)0xFFFFFFFFFFFF) luaL_error(L, "out of range");
+		sum|=(uint64_t)v;
 	}
 	lua_pushlint(L,sum);
 	return 1;
 }
-static int luacall_bitnot(lua_State *L)
+static int lua_bitnotx(lua_State *L, int64_t max)
 {
 	lua_check_argc(L,"bitnot",1);
-	lua_pushlint(L,~(uint32_t)luaL_checklint(L,1));
+	int64_t v=(int64_t)luaL_checklint(L,1);
+	if (v>max || v<-max) luaL_error(L, "out of range");
+	lua_pushlint(L,~(uint64_t)v & max);
 	return 1;
+}
+static int luacall_bitnot8(lua_State *L)
+{
+	lua_check_argc(L,"bitnot8",1);
+	return lua_bitnotx(L, 0xFF);
+}
+static int luacall_bitnot16(lua_State *L)
+{
+	lua_check_argc(L,"bitnot16",1);
+	return lua_bitnotx(L, 0xFFFF);
+}
+static int luacall_bitnot24(lua_State *L)
+{
+	lua_check_argc(L,"bitnot24",1);
+	return lua_bitnotx(L, 0xFFFFFF);
+}
+static int luacall_bitnot32(lua_State *L)
+{
+	lua_check_argc(L,"bitnot32",1);
+	return lua_bitnotx(L, 0xFFFFFFFF);
+}
+static int luacall_bitnot48(lua_State *L)
+{
+	lua_check_argc(L,"bitnot48",1);
+	return lua_bitnotx(L, 0xFFFFFFFFFFFF);
 }
 static int luacall_bitxor(lua_State *L)
 {
 	lua_check_argc_range(L,"bitxor",1,100);
 	int argc = lua_gettop(L);
 	int64_t v;
-	uint32_t sum=0;
+	uint64_t sum=0;
 	for(int i=1;i<=argc;i++)
 	{
 		v=(int64_t)luaL_checklint(L,i);
-		if (v>0xFFFFFFFF || v<-(int64_t)0xFFFFFFFF) luaL_error(L, "out of range");
-		sum^=(uint32_t)v;
+		if (v>0xFFFFFFFFFFFF || v<-(int64_t)0xFFFFFFFFFFFF) luaL_error(L, "out of range");
+		sum^=(uint64_t)v;
 	}
 	lua_pushlint(L,sum);
 	return 1;
@@ -138,11 +165,11 @@ static int luacall_bitget(lua_State *L)
 	lua_check_argc(L,"bitget",3);
 
 	int64_t iwhat = (int64_t)luaL_checklint(L,1);
-	if (iwhat>0xFFFFFFFF || iwhat<-(int64_t)0xFFFFFFFF) luaL_error(L, "out of range");
-	uint32_t what = (uint32_t)iwhat;
+	if (iwhat>0xFFFFFFFFFFFF || iwhat<-(int64_t)0xFFFFFFFFFFFF) luaL_error(L, "out of range");
+	uint64_t what = (uint64_t)iwhat;
 	lua_Integer from = luaL_checkinteger(L,2);
 	lua_Integer to = luaL_checkinteger(L,3);
-	if (from>to || from>31 || to>31)
+	if (from>to || from>47 || to>47)
 		luaL_error(L, "bit range invalid");
 
 	what = (what >> from) & ~((lua_Integer)-1 << (to-from+1));
@@ -155,14 +182,14 @@ static int luacall_bitset(lua_State *L)
 	lua_check_argc(L,"bitset",4);
 
 	int64_t iwhat = (int64_t)luaL_checklint(L,1);
-	if (iwhat>0xFFFFFFFF || iwhat<-(int64_t)0xFFFFFFFF) luaL_error(L, "out of range");
-	uint32_t what = (uint32_t)iwhat;
+	if (iwhat>0xFFFFFFFFFFFF || iwhat<-(int64_t)0xFFFFFFFFFFFF) luaL_error(L, "out of range");
+	uint64_t what = (uint64_t)iwhat;
 	lua_Integer from = luaL_checkinteger(L,2);
 	lua_Integer to = luaL_checkinteger(L,3);
 	int64_t iset = (int64_t)luaL_checklint(L,4);
-	if (iset>0xFFFFFFFF || iset<-(int64_t)0xFFFFFFFF) luaL_error(L, "out of range");
-	uint32_t set = (uint32_t)iset;
-	if (from>to || from>31 || to>31)
+	if (iset>0xFFFFFFFFFFFF || iset<-(int64_t)0xFFFFFFFFFFFF) luaL_error(L, "out of range");
+	uint64_t set = (uint64_t)iset;
+	if (from>to || from>47 || to>47)
 		luaL_error(L, "bit range invalid");
 
 	lua_Integer mask = ~((lua_Integer)-1 << (to-from+1));
@@ -230,6 +257,20 @@ static int luacall_u32(lua_State *L)
 	lua_pushlint(L,pntoh32(p+offset));
 	return 1;
 }
+static int luacall_u48(lua_State *L)
+{
+	lua_check_argc_range(L,"u48",1,2);
+
+	int argc=lua_gettop(L);
+	size_t l;
+	lua_Integer offset;
+	const uint8_t *p = (uint8_t*)luaL_checklstring(L,1,&l);
+	offset = (argc>=2 && lua_type(L,2)!=LUA_TNIL) ? luaL_checkinteger(L,2)-1 : 0;
+	if (offset<0 || (offset+6)>l) luaL_error(L, "out of range");
+
+	lua_pushlint(L,pntoh48(p+offset));
+	return 1;
+}
 static int luacall_swap16(lua_State *L)
 {
 	lua_check_argc(L,"swap16",1);
@@ -237,8 +278,7 @@ static int luacall_swap16(lua_State *L)
 	int64_t i = (int64_t)luaL_checklint(L,1);
 	if (i>0xFFFF || i<-(int64_t)0xFFFF) luaL_error(L, "out of range");
 	uint16_t u = (uint16_t)i;
-	// __builtin_bswap16 is absent in ancient lexra gcc 4.6
-	lua_pushinteger(L,(u>>8) | ((u&0xFF)<<8));
+	lua_pushinteger(L,swap16(u));
 	return 1;
 }
 static int luacall_swap32(lua_State *L)
@@ -251,16 +291,26 @@ static int luacall_swap32(lua_State *L)
 	lua_pushlint(L,__builtin_bswap32(u));
 	return 1;
 }
-static int lua_uxadd(lua_State *L, uint32_t max)
+static int luacall_swap48(lua_State *L)
+{
+	lua_check_argc(L,"swap48",1);
+
+	int64_t i =(int64_t)luaL_checklint(L,1);
+	if (i>0xFFFFFFFFFFFF || i<-(int64_t)0xFFFFFFFFFFFF) luaL_error(L, "out of range");
+	uint64_t u = (uint64_t)i;
+	lua_pushlint(L, swap48(u));
+	return 1;
+}
+static int lua_uxadd(lua_State *L, int64_t max)
 {
 	int64_t v;
-	uint32_t sum=0;
+	uint64_t sum=0;
 	int argc = lua_gettop(L);
 	for(int i=1;i<=argc;i++)
 	{
 		v = (int64_t)luaL_checklint(L,i);
-		if (v>max || v<-(int64_t)max) luaL_error(L, "out of range");
-		sum+=(uint32_t)v;
+		if (v>max || v<-max) luaL_error(L, "out of range");
+		sum+=(uint64_t)v;
 	}
 	lua_pushlint(L, sum & max);
 	return 1;
@@ -284,6 +334,11 @@ static int luacall_u32add(lua_State *L)
 {
 	lua_check_argc_range(L,"u32add",1,100);
 	return lua_uxadd(L, 0xFFFFFFFF);
+}
+static int luacall_u48add(lua_State *L)
+{
+	lua_check_argc_range(L,"u48add",1,100);
+	return lua_uxadd(L, 0xFFFFFFFFFFFF);
 }
 
 static int luacall_bu8(lua_State *L)
@@ -327,6 +382,17 @@ static int luacall_bu32(lua_State *L)
 	uint8_t v[4];
 	phton32(v,(uint32_t)i);
 	lua_pushlstring(L,(char*)v,4);
+	return 1;
+}
+static int luacall_bu48(lua_State *L)
+{
+	lua_check_argc(L,"bu48",1);
+
+	int64_t i = (int64_t)luaL_checklint(L,1);
+	if (i>0xFFFFFFFFFFFF || i<-(int64_t)0xFFFFFFFFFFFF) luaL_error(L, "out of range");
+	uint8_t v[4];
+	phton48(v,(uint64_t)i);
+	lua_pushlstring(L,(char*)v,6);
 	return 1;
 }
 
@@ -3090,10 +3156,14 @@ static void lua_init_functions(void)
 		{"bitand",luacall_bitand},
 		{"bitor",luacall_bitor},
 		{"bitxor",luacall_bitxor},
-		{"bitxor",luacall_bitxor},
 		{"bitget",luacall_bitget},
 		{"bitset",luacall_bitset},
-		{"bitnot",luacall_bitnot},
+		{"bitnot",luacall_bitnot48},
+		{"bitnot8",luacall_bitnot8},
+		{"bitnot16",luacall_bitnot16},
+		{"bitnot24",luacall_bitnot24},
+		{"bitnot32",luacall_bitnot32},
+		{"bitnot48",luacall_bitnot48},
 
 		// WARNING : lua 5.1 and luajit does not correctly implement integers. they seem to be stored as float which can't hold 64-bit.
 		// convert part of the blob (string) to number
@@ -3101,19 +3171,23 @@ static void lua_init_functions(void)
 		{"u16",luacall_u16},
 		{"u24",luacall_u24},
 		{"u32",luacall_u32},
+		{"u48",luacall_u48},
 		// add any number of arguments as they would be unsigned int of specific size
 		{"u8add",luacall_u8add},
 		{"u16add",luacall_u16add},
 		{"u24add",luacall_u24add},
 		{"u32add",luacall_u32add},
+		{"u48add",luacall_u48add},
 		// convert number to blob (string) - big endian
 		{"bu8",luacall_bu8},
 		{"bu16",luacall_bu16},
 		{"bu24",luacall_bu24},
 		{"bu32",luacall_bu32},
+		{"bu48",luacall_bu48},
 		// swap byte order
 		{"swap16",luacall_swap16},
 		{"swap32",luacall_swap32},
+		{"swap48",luacall_swap48},
 
 		// integer division
 		{"divint",luacall_divint},

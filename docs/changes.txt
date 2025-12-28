@@ -137,3 +137,4 @@ v0.7.6
 v0.7.7
 
 * init.d: 50-dht4all NFQWS_OPT_DHT_PKT_OUT
+* nfqws2: support 48-bit arithmetics

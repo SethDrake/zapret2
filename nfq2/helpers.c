@@ -367,6 +367,19 @@ void phton32(uint8_t *p, uint32_t v)
 	p[2] = (uint8_t)(v>>8);
 	p[3] = (uint8_t)v;
 }
+uint64_t pntoh48(const uint8_t *p)
+{
+	return ((uint64_t)p[0] << 40) | ((uint64_t)p[1] << 32) | ((uint64_t)p[2] << 24) | ((uint64_t)p[3] << 16) | ((uint64_t)p[4] << 8) | p[5];
+}
+void phton48(uint8_t *p, uint64_t v)
+{
+	p[0] = (uint8_t)(v>>40);
+	p[1] = (uint8_t)(v>>32);
+	p[2] = (uint8_t)(v>>24);
+	p[3] = (uint8_t)(v>>16);
+	p[4] = (uint8_t)(v>>8);
+	p[5] = (uint8_t)v;
+}
 uint64_t pntoh64(const uint8_t *p)
 {
 	return ((uint64_t)p[0] << 56) | ((uint64_t)p[1] << 48) | ((uint64_t)p[2] << 40) | ((uint64_t)p[3] << 32) | ((uint64_t)p[4] << 24) | ((uint64_t)p[5] << 16) | ((uint64_t)p[6] << 8) | p[7];
@@ -381,6 +394,16 @@ void phton64(uint8_t *p, uint64_t v)
 	p[5] = (uint8_t)(v>>16);
 	p[6] = (uint8_t)(v>>8);
 	p[7] = (uint8_t)v;
+}
+
+uint16_t swap16(uint16_t u)
+{
+	// __builtin_bswap16 is absent in ancient lexra gcc 4.6
+	return (u>>8) | ((u&0xFF)<<8);
+}
+uint64_t swap48(uint64_t u)
+{
+	return ((u & 0xFF0000000000) >> 40) | ((u & 0xFF00000000) >> 24) | ((u & 0xFF000000) >> 8) | ((u & 0xFF0000) << 8) | ((u & 0xFF00) << 24) | ((u & 0xFF) << 40);
 }
 
 
