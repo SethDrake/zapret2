@@ -1752,6 +1752,7 @@ function bu48(u48)
 
 ```
 function swap16(u16)
+function swap24(u24)
 function swap32(u32)
 function swap48(u48)
 ```

@@ -281,6 +281,16 @@ static int luacall_swap16(lua_State *L)
 	lua_pushinteger(L,swap16(u));
 	return 1;
 }
+static int luacall_swap24(lua_State *L)
+{
+	lua_check_argc(L,"swap24",1);
+
+	int64_t i =(int64_t)luaL_checklint(L,1);
+	if (i>0xFFFFFF || i<-(int64_t)0xFFFFFF) luaL_error(L, "out of range");
+	uint32_t u = (uint32_t)i;
+	lua_pushlint(L,swap24(u));
+	return 1;
+}
 static int luacall_swap32(lua_State *L)
 {
 	lua_check_argc(L,"swap32",1);
@@ -3186,6 +3196,7 @@ static void lua_init_functions(void)
 		{"bu48",luacall_bu48},
 		// swap byte order
 		{"swap16",luacall_swap16},
+		{"swap24",luacall_swap24},
 		{"swap32",luacall_swap32},
 		{"swap48",luacall_swap48},
 
