@@ -1682,33 +1682,39 @@ Lua 5.3 имеет встроенные битовые операции, но н
 особенно в условиях частого отсутствия FPU на роутерах и других embedded устройствах.
 
 Чтобы не зависеть от всей этой неразберихи, в nfqws2 выставляется свой собственный набор битовых функций и функций сдвига,
-который не зависит от типа движка Lua и его версии. Все типы битовых операций работают с беззнаковыми числами от 8 до 32 бит.
+который не зависит от типа движка Lua и его версии. Все типы битовых операций работают с беззнаковыми числами от 8 до 48 бит.
 При передаче отрицательных чисел они интерпретируются в дополнительном коде. Например, в 32 битах -2 становится 0xFFFFFFFE, в 8 битах - 0xFE.
 Большая разрядность не поддерживается, поскольку возникают несовместимости между Lua 5.3+ и более старыми версиями.
-Только в Lua 5.3 реализован тип integer 64 bit. В более старых используется формат плавающей точки double с мантиссой 53 бит.
+Только в Lua 5.3 реализован тип integer 64 bit. В более старых используется формат плавающей точки double с мантиссой 53 бит, что позволяет передать до 48 бит int.
 
 Стандартные операции сдвига и побитовые логические операции :
 
 ```
-function bitlshift(u32, bits)
-function bitrshift(u32, bits)
-function bitand(u32_1, u32_2, ...., u32_N)
-function bitor(u32_1, u32_2, ...., u32_N)
-function bitxor(u32_1, u32_2, ...., u32_N)
-function bitnot(u32)
+function bitlshift(u48, bits)
+function bitrshift(u48, bits)
+function bitand(u48_1, u48_2, ...., u48_N)
+function bitor(u48_1, u48_2, ...., u48_N)
+function bitxor(u48_1, u48_2, ...., u48_N)
+function bitnot(u48)
+function bitnot8(u8)
+function bitnot16(u16)
+function bitnot24(u24)
+function bitnot32(u32)
+function bitnot48(u48)
 ```
 
 bitand, bitor и bitxor работает с произвольным количеством чисел.
+bitnot имеет версии для различных разрядностей. Вариант `bitnot` является синонимом `bitnot48`.
 
 Операции получения и установки отдельных битов :
 
 ```
-function bitget(u32, bit_from, bit_to)
-function bitset(u32, bit_from, bit_to, set)
+function bitget(u48, bit_from, bit_to)
+function bitset(u48, bit_from, bit_to, set)
 ```
 
-- bitget получает число из диапазона битов u32 с номерами от bit_from до bit_to. нумерация битов с 0.
-- bitset записывает число set в диапазон битов u32 с номерами от bit_from до bit_to. нумерация битов с 0. старшие биты set, выходящие за пределы (bit_to-bit_from), игнорируются.
+- bitget получает число из диапазона битов u48 с номерами от bit_from до bit_to. нумерация битов с 0.
+- bitset записывает число set в диапазон битов u48 с номерами от bit_from до bit_to. нумерация битов с 0. старшие биты set, выходящие за пределы (bit_to-bit_from), игнорируются.
 
 ### Операции с беззнаковыми числами
 
@@ -1722,6 +1728,7 @@ function u8(raw_string, offset)
 function u16(raw_string, offset)
 function u24(raw_string, offset)
 function u32(raw_string, offset)
+function u48(raw_string, offset)
 ```
 
 Эти функции используются для извлечения числовых полей в формате big endian из raw строки.
@@ -1735,6 +1742,7 @@ function bu8(u8)
 function bu16(u16)
 function bu24(u24)
 function bu32(u32)
+function bu48(u48)
 ```
 
 Преобразуют число в raw строку в формате big endian.
@@ -1745,11 +1753,12 @@ function bu32(u32)
 ```
 function swap16(u16)
 function swap32(u32)
+function swap48(u48)
 ```
 
 #### uXadd
 
-Инвертируют порядок следования байт в u16 или u32. Если в вашей структуре порядок байт little endian,
+Инвертируют порядок следования байт в u16, u32 или u48. Если в вашей структуре порядок байт little endian,
 можно использовать uX/buX + swap.
 
 ```
@@ -1757,6 +1766,7 @@ function u8add(u8_1, u8_2, ...., u8_N)
 function u16add(u16_1, u16_2, ...., u16_N)
 function u24add(u24_1, u24_2, ...., u24_N)
 function u32add(u32_1, u32_2, ...., u32_N)
+function u48add(u32_1, u48_2, ...., u48_N)
 ```
 
 Функции для сложения произвольного количества беззнаковых чисел указанной разрядности.
