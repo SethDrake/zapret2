@@ -1317,9 +1317,9 @@ bool QUICDefragCrypto(const uint8_t *clean,size_t clean_len, uint8_t *defrag,siz
 
 bool IsQUICInitial(const uint8_t *data, size_t len)
 {
-	// too small packets are not likely to be initials with client hello
+	// too small packets are not likely to be initials
 	// long header, fixed bit
-	if (len < 256 || (data[0] & 0xC0)!=0xC0) return false;
+	if (len < 128 || (data[0] & 0xF0)!=0xC0) return false;
 
 	uint32_t ver = QUICExtractVersion(data,len);
 	if (QUICDraftVersion(ver) < 11) return false;
@@ -1349,8 +1349,7 @@ bool IsQUICInitial(const uint8_t *data, size_t len)
 	offset += sz;
 	if (offset > len) return false;
 
-	// client hello cannot be too small. likely ACK
-	return sz>=96;
+	return true;
 }
 
 
