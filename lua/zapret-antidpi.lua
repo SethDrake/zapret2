@@ -317,7 +317,7 @@ function tls_client_hello_clone(ctx, desync)
 		end
 		local idx_sni
 		if desync.arg.sni_snt or desync.arg.sni_del_ext or desync.arg.sni_del or desync.arg.sni_first or desync.arg.sni_last then
-			idx_sni = array_field_search(tdis.handshake[TLS_HANDSHAKE_TYPE_CLIENT].dis.ext, "type", 0)
+			idx_sni = array_field_search(tdis.handshake[TLS_HANDSHAKE_TYPE_CLIENT].dis.ext, "type", TLS_EXT_SERVER_NAME)
 			if not idx_sni then
 				DLOG("tls_client_hello_clone: no SNI extension. adding")
 				table.insert(tdis.handshake[TLS_HANDSHAKE_TYPE_CLIENT].dis.ext, 1, { type = TLS_EXT_SERVER_NAME, dis = { list = {} } } )
