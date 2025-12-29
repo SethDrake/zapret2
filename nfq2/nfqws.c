@@ -1407,7 +1407,7 @@ static void exithelp(void)
 		"\nDESYNC ENGINE INIT:\n"
 		" --writeable[=<dir_name>]\t\t\t\t; create writeable dir for LUA scripts and pass it in WRITEABLE env variable (only one dir possible)\n"
 		" --blob=<item_name>:[+ofs]@<filename>|0xHEX\t\t; load blob to LUA var <item_name>\n"
-		" --lua-init=@<filename>|<lua_text>\t\t\t; load LUA program from a file or string. if multiple parameters present order of execution is preserved.\n"
+		" --lua-init=@<filename>|<lua_text>\t\t\t; load LUA program from a file or string. if multiple parameters present order of execution is preserved. gzipped files are supported.\n"
 		" --lua-gc=<int>\t\t\t\t\t\t; forced garbage collection every N sec. default %u sec. triggers only when a packet arrives. 0 = disable.\n"
 		"\nMULTI-STRATEGY:\n"
 		" --new\t\t\t\t\t\t\t; begin new profile\n"
