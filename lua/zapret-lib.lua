@@ -1361,6 +1361,55 @@ function ipfrag2(dis, ipfrag_options)
 end
 
 
+-- option: sni_snt - server name type value in existing names
+-- option: sni_snt_new - server name type value for new names
+-- option: sni_del_ext - delete sni extension
+-- option: sni_del - delete all names
+-- option: sni_first - add name to the beginning
+-- option: sni_last - add name to the end
+function tls_client_hello_mod(tls, options)
+	local tdis = tls_dissect(tls)
+	if not tdis then
+		DLOG("tls_client_hello_mod: could not dissect tls")
+		return
+	end
+	if not tdis.handshake or not tdis.handshake[TLS_HANDSHAKE_TYPE_CLIENT] then
+		DLOG("tls_client_hello_mod: handshake not dissected")
+		return
+	end
+	local idx_sni
+	if options.sni_snt or options.sni_del_ext or options.sni_del or options.sni_first or options.sni_last then
+		idx_sni = array_field_search(tdis.handshake[TLS_HANDSHAKE_TYPE_CLIENT].dis.ext, "type", TLS_EXT_SERVER_NAME)
+		if not idx_sni then
+			DLOG("tls_client_hello_mod: no SNI extension. adding")
+			table.insert(tdis.handshake[TLS_HANDSHAKE_TYPE_CLIENT].dis.ext, 1, { type = TLS_EXT_SERVER_NAME, dis = { list = {} } } )
+			idx_sni = 1
+		end
+	end
+	if options.sni_del_ext then
+		table.remove(tdis.handshake[TLS_HANDSHAKE_TYPE_CLIENT].dis.ext, idx_sni)
+	else
+		if options.sni_del then
+			tdis.handshake[TLS_HANDSHAKE_TYPE_CLIENT].dis.ext[idx_sni].dis.list = {}
+		elseif options.sni_snt then
+			for i,v in pairs(tdis.handshake[TLS_HANDSHAKE_TYPE_CLIENT].dis.ext[idx_sni].dis.list) do
+				v.type = options.sni_snt
+			end
+		end
+		if options.sni_first then
+			table.insert(tdis.handshake[TLS_HANDSHAKE_TYPE_CLIENT].dis.ext[idx_sni].dis.list, 1, { name = options.sni_first, type = options.sni_snt_new } )
+		end
+		if options.sni_last then
+			table.insert(tdis.handshake[TLS_HANDSHAKE_TYPE_CLIENT].dis.ext[idx_sni].dis.list, { name = options.sni_last, type = options.sni_snt_new } )
+		end
+	end
+	local tls = tls_reconstruct(tdis)
+	if not tls then
+		DLOG_ERR("tls_client_hello_mod: reconstruct error")
+	end
+	return tls
+end
+
 -- DISSECTORS
 
 function http_dissect_header(header)
