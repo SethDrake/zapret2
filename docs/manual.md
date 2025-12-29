@@ -96,6 +96,7 @@
     - [var\_debug](#var_debug)
     - [deepcopy](#deepcopy)
     - [logical\_xor](#logical_xor)
+    - [array\_search](#array_search)
   - [Работа со строками](#работа-со-строками)
     - [in\_list](#in_list)
     - [find\_next\_line](#find_next_line)
@@ -2301,6 +2302,8 @@ function logical_xor(a,b)
 ```
 
 Возвращает результат логического xor a и b.  `result = a and not b or not a and b`
+
+### array_search
 
 ```
 function array_search(a, v)
