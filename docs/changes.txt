@@ -152,3 +152,6 @@ v0.8.1
 * zapret-antidpi: http_unixeol
 * blockcheck2: http_unixeol test
 
+0.8.2
+
+* nfqws2: do not start if NFQWS2_COMPAT_VER unexpected
