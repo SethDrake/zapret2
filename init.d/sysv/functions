@@ -119,7 +119,7 @@ nft_wanif6_filter_present()
 }
 nft_fill_ifsets_overload()
 {
-	nft_fill_ifsets "$IFACE_WAN" "${IFACE_WAN6:-$IFACE_WAN}" "$IFACE_LAN"
+	nft_fill_ifsets "$IFACE_LAN" "$IFACE_WAN" "${IFACE_WAN6:-$IFACE_WAN}"
 }
 
 
