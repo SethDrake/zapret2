@@ -14,17 +14,17 @@ zapret_custom_firewall()
 	for lan in $lanifs; do
 		rule="-o $lan $filt $jump"
 		ipt_print_op $1 "$rule" "nfqws FORWARD (qnum $QNUM)"
-		ipt_add_del $1 FORWARD $rule
+		ipt_add_del $1 FORWARD -t mangle $rule
 		ipt_print_op $1 "$rule" "nfqws FORWARD (qnum $QNUM)" 6
-		ipt6_add_del $1 FORWARD $rule
+		ipt6_add_del $1 FORWARD -t mangle $rule
 	done
 	# dns client server
 	for chain in INPUT OUTPUT ; do
 		rule="$filt $jump"
 		ipt_print_op $1 "$rule" "nfqws $chain (qnum $QNUM)"
-		ipt_add_del $1 $chain $rule
+		ipt_add_del $1 $chain -t mangle $rule
 		ipt_print_op $1 "$rule" "nfqws $chain (qnum $QNUM)" 6
-		ipt6_add_del $1 $chain $rule
+		ipt6_add_del $1 $chain -t mangle $rule
 	done
 }
 
