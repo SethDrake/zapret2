@@ -162,3 +162,7 @@ v0.8.1
 * init.d: 80-dns-intercept
 * winws2: --wf-filter-loopback
 * blockcheck2: NOTEST_MISC_HTTP[S], NOTEST_SYNDATA_HTTP[S]
+
+0.8.3
+
+* nfqws2, zapret-lib: gzip compression and decompression

@@ -2591,7 +2591,210 @@ static int luacall_tls_mod(lua_State *L)
 	LUA_STACK_GUARD_RETURN(L,2)
 }
 
+struct userdata_zs
+{
+	bool valid, inflate;
+	z_stream zs;
+};
+static struct userdata_zs *lua_uzs(int idx, bool bInflate)
+{
+	struct userdata_zs *uzs = (struct userdata_zs *)luaL_checkudata(params.L, idx, "userdata_zstream");
+	if (!uzs->valid) luaL_error(params.L, "gzip stream is not valid");
+	if (bInflate!=uzs->inflate) luaL_error(params.L, "gzip stream role mismatch");
+	return uzs;
+}
+static int luacall_gunzip_init(lua_State *L)
+{
+	// gunzip_init(windowBits) return zstream
+	lua_check_argc_range(L,"gunzip_init",0,1);
 
+	LUA_STACK_GUARD_ENTER(L)
+
+	int argc=lua_gettop(L);
+	int windowBits = (argc>=1 && !lua_isnil(L,1)) ? luaL_checkinteger(L, 1) : 47;
+
+	struct userdata_zs *uzs = (struct userdata_zs *)lua_newuserdata(L, sizeof(struct userdata_zs));
+	memset(&uzs->zs, 0, sizeof(uzs->zs));
+	int r = inflateInit2(&uzs->zs, windowBits);
+	if (r == Z_OK)
+	{
+		uzs->inflate = true;
+		uzs->valid = true;
+		luaL_newmetatable(L, "userdata_zstream");
+		lua_setmetatable(L, -2);
+	}
+	else
+	{
+		lua_pop(L,1);
+		lua_pushnil(L);
+	}
+
+	LUA_STACK_GUARD_RETURN(L,1)
+}
+static int luacall_gunzip_end(lua_State *L)
+{
+	lua_check_argc(L,"gunzip_end",1);
+
+	LUA_STACK_GUARD_ENTER(L)
+
+	struct userdata_zs *uzs = lua_uzs(1, true);
+	inflateEnd(&uzs->zs);
+	uzs->valid = false;
+
+	LUA_STACK_GUARD_RETURN(L,0)
+}
+#define BUFMIN 128
+static int luacall_gunzip_inflate(lua_State *L)
+{
+	// gunzip_inflate(zstream, compressed_data, expected_uncompressed_chunk_size) return decompressed_data
+	lua_check_argc_range(L,"gunzip_inflate",2,3);
+
+	LUA_STACK_GUARD_ENTER(L)
+
+	int argc=lua_gettop(L);
+	size_t l;
+	int r;
+	size_t bufsize=0, size=0;
+	uint8_t *buf=NULL, *newbuf;
+	struct userdata_zs *uzs = lua_uzs(1, true);
+	uzs->zs.next_in = (z_const Bytef*)luaL_checklstring(L,2,&l);
+	uzs->zs.avail_in = (uInt)l;
+	size_t bufchunk = argc>=3 ? luaL_checkinteger(L,3) : l*4;
+
+	do
+	{
+		if ((bufsize - size) < BUFMIN)
+		{
+			bufsize += bufchunk;
+			newbuf = buf ? realloc(buf, bufsize) : malloc(bufsize);
+			if (!newbuf)
+			{
+				r = Z_MEM_ERROR;
+				goto zerr;
+			}
+			buf = newbuf;
+		}
+		uzs->zs.avail_out = bufsize - size;
+		uzs->zs.next_out = buf + size;
+		r = inflate(&uzs->zs, Z_NO_FLUSH);
+		if (r != Z_OK && r != Z_STREAM_END) goto zerr;
+		size = bufsize - uzs->zs.avail_out;
+	} while (r == Z_OK && uzs->zs.avail_in);
+
+	lua_pushlstring(L, buf, size);
+	lua_pushboolean(L, r==Z_STREAM_END);
+end:
+	free(buf);
+	LUA_STACK_GUARD_RETURN(L,2)
+zerr:
+	lua_pushnil(L);
+	lua_pushnil(L);
+	goto end;
+}
+
+static void *z_alloc(voidpf opaque, uInt items, uInt size)
+{
+	return malloc((size_t)items*size);
+}
+static void z_free(voidpf opaque, voidpf address)
+{
+	return free(address);
+}
+static int luacall_gzip_init(lua_State *L)
+{
+	// gzip_init(windowBits, level, memlevel) return zstream
+	lua_check_argc_range(L,"gunzip_init",0,3);
+
+	LUA_STACK_GUARD_ENTER(L)
+
+	int argc=lua_gettop(L);
+	int windowBits = (argc>=1 && !lua_isnil(L,1)) ? luaL_checkinteger(L, 1) : 31;
+	int level = (argc>=2 && !lua_isnil(L,2)) ? luaL_checkinteger(L, 2) : 9;
+	int memlevel = (argc>=3 && !lua_isnil(L,3)) ? luaL_checkinteger(L, 3) : 8;
+
+	struct userdata_zs *uzs = (struct userdata_zs *)lua_newuserdata(L, sizeof(struct userdata_zs));
+	memset(&uzs->zs, 0, sizeof(uzs->zs));
+	uzs->zs.zalloc = z_alloc;
+	uzs->zs.zfree = z_free;
+	int r = deflateInit2(&uzs->zs, level, Z_DEFLATED, windowBits, memlevel, Z_DEFAULT_STRATEGY);
+	if (r == Z_OK)
+	{
+		uzs->inflate = false;
+		uzs->valid = true;
+		luaL_newmetatable(L, "userdata_zstream");
+		lua_setmetatable(L, -2);
+	}
+	else
+	{
+		lua_pop(L,1);
+		lua_pushnil(L);
+	}
+
+	LUA_STACK_GUARD_RETURN(L,1)
+}
+static int luacall_gzip_end(lua_State *L)
+{
+	lua_check_argc(L,"gzip_end",1);
+
+	LUA_STACK_GUARD_ENTER(L)
+
+	struct userdata_zs *uzs = lua_uzs(1, false);
+	deflateEnd(&uzs->zs);
+	uzs->valid = false;
+
+	LUA_STACK_GUARD_RETURN(L,0)
+}
+
+static int luacall_gzip_deflate(lua_State *L)
+{
+	// gzip_deflate(zstream, decompressed_data, expected_compressed_chunk_size) return compressed_data
+	lua_check_argc_range(L,"gzip_deflate",1,3);
+
+	LUA_STACK_GUARD_ENTER(L)
+
+	int argc=lua_gettop(L);
+	size_t l=0;
+	int r;
+	size_t bufsize=0, size=0;
+	uint8_t *buf=NULL, *newbuf;
+	struct userdata_zs *uzs = lua_uzs(1, false);
+	if (argc>=2 && !lua_isnil(L,2))
+	{
+		uzs->zs.next_in = (z_const Bytef*)luaL_checklstring(L,2,&l);
+		uzs->zs.avail_in = (uInt)l;
+	}
+	size_t bufchunk = argc>=3 ? luaL_checkinteger(L,3) : 1+l/4;
+
+	do
+	{
+		if ((bufsize - size) < BUFMIN)
+		{
+			bufsize += bufchunk;
+			newbuf = buf ? realloc(buf, bufsize) : malloc(bufsize);
+			if (!newbuf)
+			{
+				r = Z_MEM_ERROR;
+				goto zerr;
+			}
+			buf = newbuf;
+		}
+		uzs->zs.avail_out = bufsize - size;
+		uzs->zs.next_out = buf + size;
+		r = deflate(&uzs->zs, l ? Z_NO_FLUSH : Z_FINISH);
+		if (r != Z_OK && r != Z_STREAM_END) goto zerr;
+		size = bufsize - uzs->zs.avail_out;
+	} while (r == Z_OK && (uzs->zs.avail_in || !uzs->zs.avail_out));
+
+	lua_pushlstring(L, buf, size);
+	lua_pushboolean(L, r==Z_STREAM_END);
+end:
+	free(buf);
+	LUA_STACK_GUARD_RETURN(L,2)
+zerr:
+	lua_pushnil(L);
+	lua_pushnil(L);
+	goto end;
+}
 
 // ----------------------------------------
 
@@ -3125,7 +3328,16 @@ static void lua_init_functions(void)
 		{"resolve_range",luacall_resolve_range},
 
 		// tls
-		{"tls_mod",luacall_tls_mod}
+		{"tls_mod",luacall_tls_mod},
+
+		// gzip decompress
+		{"gunzip_init",luacall_gunzip_init},
+		{"gunzip_end",luacall_gunzip_end},
+		{"gunzip_inflate",luacall_gunzip_inflate},
+		// gzip compress
+		{"gzip_init",luacall_gzip_init},
+		{"gzip_end",luacall_gzip_end},
+		{"gzip_deflate",luacall_gzip_deflate}
 	};
 	for(int i=0;i<(sizeof(lfunc)/sizeof(*lfunc));i++)
 		lua_register(params.L,lfunc[i].name,lfunc[i].f);

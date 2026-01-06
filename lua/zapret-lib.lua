@@ -1426,6 +1426,83 @@ function tls_client_hello_mod(tls, options)
 	return tls
 end
 
+-- checks if filename is gzip compressed
+function is_gzip_file(filename)
+	local f, err = io.open(filename, "r")
+	if not f then
+		error("gunzip_file: "..err)
+	end
+	local hdr = f:read(2)
+	f:close()
+	return hdr and hdr=="\x1F\x8B"
+end
+-- ungzips file to raw string
+function gunzip_file(filename, read_block_size)
+	local f, err = io.open(filename, "r")
+	if not f then
+		error("gunzip_file: "..err)
+	end
+	if not read_block_size then read_block_size=16384 end
+
+	local decompressed=""
+	gz = gunzip_init()
+	if not gz then
+		error("gunzip_file: stream init error")
+	end
+	repeat
+		local compressed, err = f:read(read_block_size)
+		if not compressed then
+			f:close()
+			gunzip_end(gz)
+			if err then
+				error("gunzip_file: file read error : "..err)
+			else
+				error("gunzip_file: premature EOF")
+			end
+		end
+		local decomp, eof = gunzip_inflate(gz, compressed)
+		if not decomp then
+			f:close()
+			gunzip_end(gz)
+			return nil
+		end
+		decompressed = decompressed .. decomp
+	until eof
+	f:close()
+	gunzip_end(gz)
+	return decompressed
+end
+-- zips file to raw string
+-- level : 1..9 (default 9)
+-- memlevel : 1..8 (default 8)
+function gzip_file(filename, data, level, memlevel, compress_block_size)
+	local f, err = io.open(filename, "w")
+	if not f then
+		error("gzip_file: "..err)
+	end
+	if not write_block_size then compress_block_size=16384 end
+
+	gz = gzip_init(nil, level, memlevel)
+	if not gz then
+		error("gunzip_file: stream init error")
+	end
+	local off=1, block_size
+	repeat
+		block_size = #data-off+1
+		if block_size>compress_block_size then block_size=compress_block_size end
+		local comp, eof = gzip_deflate(gz, string.sub(data,off,off+block_size-1))
+		if not comp then
+			f:close()
+			gzip_end(gz)
+			return nil
+		end
+		f:write(comp)
+		off = off + block_size
+	until eof
+	f:close()
+	gzip_end(gz)
+end
+
 -- DISSECTORS
 
 function http_dissect_header(header)
