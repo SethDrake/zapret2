@@ -13,7 +13,7 @@ end
 
 
 function test_all(...)
-	test_run({test_crypto, test_bin, test_ipstr, test_dissect, test_csum, test_resolve, test_rawsend},...)
+	test_run({test_crypto, test_bin, test_gzip, test_ipstr, test_dissect, test_csum, test_resolve, test_rawsend},...)
 end
 
 
@@ -366,6 +366,35 @@ function test_bin(...)
 	test_run({test_ub, test_bit, test_swap, test_ux},...)
 end
 
+function test_gzip()
+	local s=""
+	for i=1,math.random(2000,3000) do
+		local rnd=brandom(math.random(1,50))
+		s=s..rnd..string.rep(bu8(math.random(0,255)),100-#rnd)
+	end
+	local v=math.random(100001,199999)
+	local level=math.random(1,9)
+	local memlevel=math.random(1,8)
+	print("gzip: original size "..#s)
+	print("gzip: cut point "..(v+1))
+	print("gzip: level "..level)
+	print("gzip: memlevel "..memlevel)
+	local gz = gzip_init(nil, level, memlevel)
+	local zip = gzip_deflate(gz,string.sub(s,1,v))
+	zip = zip..gzip_deflate(gz,string.sub(s,v+1))
+	zip = zip..gzip_deflate(gz,nil) -- finalize
+	gzip_end(gz)
+	print("gzip: deflated size "..#zip)
+	local v=math.random(2,#zip-1)
+	print("gunzip: cut point "..(v+1))
+	gz = gunzip_init()
+	local unzip = gunzip_inflate(gz,string.sub(zip,1,v))
+	unzip = unzip..gunzip_inflate(gz,string.sub(zip,v+1))
+	gunzip_end(gz)
+	print("gunzip: inflated size "..#unzip)
+	print("gzip+gunzip: "..(s==unzip and "OK" or "FAIL"))
+	test_assert(s==unzip)
+end
 
 function test_ipstr()
 	local s_ip, ip, s_ip2
