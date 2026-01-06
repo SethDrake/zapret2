@@ -1457,7 +1457,7 @@ function gunzip_file(filename, read_block_size)
 			if err then
 				error("gunzip_file: file read error : "..err)
 			else
-				error("gunzip_file: premature EOF")
+				return nil
 			end
 		end
 		local decomp, eof = gunzip_inflate(gz, compressed)
