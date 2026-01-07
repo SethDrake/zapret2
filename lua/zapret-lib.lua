@@ -1436,13 +1436,15 @@ function is_gzip_file(filename)
 	f:close()
 	return hdr and hdr=="\x1F\x8B"
 end
--- ungzips file to raw string
-function gunzip_file(filename, read_block_size)
+-- ungzip file to raw string
+-- expected_ratio = uncompressed_size/compressed_size (default 4)
+function gunzip_file(filename, expected_ratio, read_block_size)
 	local f, err = io.open(filename, "r")
 	if not f then
 		error("gunzip_file: "..err)
 	end
 	if not read_block_size then read_block_size=16384 end
+	if not expected_ratio then expected_ratio=4 end
 
 	local decompressed=""
 	gz = gunzip_init()
@@ -1460,7 +1462,7 @@ function gunzip_file(filename, read_block_size)
 				return nil
 			end
 		end
-		local decomp, eof = gunzip_inflate(gz, compressed)
+		local decomp, eof = gunzip_inflate(gz, compressed, #compressed * expected_ratio)
 		if not decomp then
 			f:close()
 			gunzip_end(gz)
@@ -1472,15 +1474,17 @@ function gunzip_file(filename, read_block_size)
 	gunzip_end(gz)
 	return decompressed
 end
--- zips file to raw string
+-- zip file to raw string
+-- expected_ratio = uncompressed_size/compressed_size (default 2)
 -- level : 1..9 (default 9)
 -- memlevel : 1..8 (default 8)
-function gzip_file(filename, data, level, memlevel, compress_block_size)
+function gzip_file(filename, data, expected_ratio, level, memlevel, compress_block_size)
 	local f, err = io.open(filename, "w")
 	if not f then
 		error("gzip_file: "..err)
 	end
 	if not write_block_size then compress_block_size=16384 end
+	if not expected_ratio then expected_ratio=2 end
 
 	gz = gzip_init(nil, level, memlevel)
 	if not gz then
@@ -1490,7 +1494,7 @@ function gzip_file(filename, data, level, memlevel, compress_block_size)
 	repeat
 		block_size = #data-off+1
 		if block_size>compress_block_size then block_size=compress_block_size end
-		local comp, eof = gzip_deflate(gz, string.sub(data,off,off+block_size-1))
+		local comp, eof = gzip_deflate(gz, string.sub(data,off,off+block_size-1), block_size / expected_ratio)
 		if not comp then
 			f:close()
 			gzip_end(gz)

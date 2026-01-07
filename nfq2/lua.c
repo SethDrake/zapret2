@@ -2667,9 +2667,9 @@ static int luacall_gunzip_end(lua_State *L)
 
 	LUA_STACK_GUARD_RETURN(L,0)
 }
-#define BUFMIN 128
+#define BUFMIN 64
 #define Z_INFL_BUF_INCREMENT	16384
-#define Z_DEFL_BUF_INCREMENT	4096
+#define Z_DEFL_BUF_INCREMENT	8192
 static int luacall_gunzip_inflate(lua_State *L)
 {
 	// gunzip_inflate(zstream, compressed_data, expected_uncompressed_chunk_size) return decompressed_data
@@ -2685,8 +2685,7 @@ static int luacall_gunzip_inflate(lua_State *L)
 	struct userdata_zs *uzs = lua_uzs(L, 1, true);
 	uzs->zs.next_in = (z_const Bytef*)luaL_checklstring(L,2,&l);
 	uzs->zs.avail_in = (uInt)l;
-	size_t bufchunk = argc>=3 ? luaL_checkinteger(L,3) : l*3;
-
+	size_t bufchunk = argc>=3 ? luaL_checkinteger(L,3) : l*4;
 	do
 	{
 		if ((bufsize - size) < BUFMIN)
@@ -2797,7 +2796,7 @@ static int luacall_gzip_deflate(lua_State *L)
 		uzs->zs.next_in = (z_const Bytef*)luaL_checklstring(L,2,&l);
 		uzs->zs.avail_in = (uInt)l;
 	}
-	size_t bufchunk = argc>=3 ? luaL_checkinteger(L,3) : 1+l/3;
+	size_t bufchunk = BUFMIN + (argc>=3 ? luaL_checkinteger(L,3) : l/2);
 
 	do
 	{
