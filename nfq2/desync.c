@@ -274,8 +274,8 @@ static bool auto_hostlist_retrans
 			if (dis->tcp && ctrack->dp->hostlist_auto_retrans_reset && (dis->ip || dis->ip6))
 			{
 				uint8_t pkt[sizeof(struct ip6_hdr)+sizeof(struct tcphdr)];
-				struct ip *ip;
-				struct ip6_hdr *ip6;
+				struct ip *ip=NULL;
+				struct ip6_hdr *ip6=NULL;
 				struct tcphdr *tcp;
 				uint16_t pktlen;
 
