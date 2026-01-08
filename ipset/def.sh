@@ -272,11 +272,10 @@ hup_zapret_daemons()
 {
  echo forcing zapret daemons to reload their hostlist
  if exists killall; then
-  killall -HUP tpws nfqws dvtws 2>/dev/null
+  killall -HUP nfqws2 dvtws2 2>/dev/null
  elif exists pkill; then
-  pkill -HUP ^tpws$
-  pkill -HUP ^nfqws$
-  pkill -HUP ^dvtws$
+  pkill -HUP ^nfqws2$
+  pkill -HUP ^dvtws2$
  else
   echo no mass killer available ! cant HUP zapret daemons
  fi
