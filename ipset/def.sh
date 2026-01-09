@@ -44,7 +44,9 @@ ZUSERLIST_EXCLUDE="$IPSET_RW_DIR/zapret-hosts-user-exclude.txt"
 
 [ -n "$IP2NET" ] || IP2NET="$ZAPRET_BASE/ip2net/ip2net"
 [ -n "$MDIG" ] || MDIG="$ZAPRET_BASE/mdig/mdig"
-[ -z "$MDIG_THREADS" ] && MDIG_THREADS=30
+MDIG_THREADS=${MDIG_THREADS:-30}
+MDIG_EAGAIN=${MDIG_EAGAIN:-10}
+MDIG_EAGAIN_DELAY=${MDIG_EAGAIN_DELAY:-500}
 
 
 
@@ -161,7 +163,7 @@ digger()
  if [ -x "$MDIG" ]; then
   local cmd
   [ "$2" = "s" ] && cmd=--stats=1000
-  "$MDIG" --family=$1 --threads=$MDIG_THREADS $cmd
+  "$MDIG" --family=$1 --threads=$MDIG_THREADS --eagain=$MDIG_EAGAIN --eagain-delay=$MDIG_EAGAIN_DELAY $cmd
  else
   local A=A
   [ "$1" = "6" ] && A=AAAA
