@@ -41,7 +41,9 @@ AUTOHOSTLIST_DEBUGLOG=0
 
 # number of parallel threads for domain list resolves
 MDIG_THREADS=30
+# EAI_AGAIN retries
 MDIG_EAGAIN=10
+# delay between EAI_AGAIN retries (ms)
 MDIG_EAGAIN_DELAY=500
 
 # ipset/*.sh can compress large lists
