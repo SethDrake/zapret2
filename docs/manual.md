@@ -4326,8 +4326,8 @@ ip2net фильтрует входные данные, выкидывая неп
 ```
 --family=<4|6|46>              ; выбор семейства IP адресов : ipv4, ipv6, ipv4+ipv6
 --threads=<threads_number>     ; количество потоков. по умолчанию 1.
---eagain=<eagain_retries>      ; количество попыток повтора после EAGAIN. по умолчанию 10
---eagain-delay=<ms>            ; время ожидания в мсек между повторами по EAGAIN. по умолчанию 500.
+--eagain=<eagain_retries>      ; количество попыток повтора после EAI_AGAIN. по умолчанию 10
+--eagain-delay=<ms>            ; время ожидания в мсек между повторами по EAI_AGAIN. по умолчанию 500.
 --verbose                      ; дебаг-лог на консоль
 --stats=N                      ; выводить статистику каждые N доменов
 --log-resolved=<file>          ; сохранять успешно отресолвленные домены в файл
@@ -4668,8 +4668,8 @@ nfqws2 может работать и самостоятельно без скр
 | IPSET_HOOK                                                                                                                                                                                                                          | скрипт, который получает имя ipset в $1, выдает в stdout список ip, и они добавляются в ipset                                                 |
 | IP2NET_OPT4<br>IP2NET_OPT6                                                                                                                                                                                                          | настройки ip2net для скриптов получения ip листов                                                                                             |
 | MDIG_THREADS                                                                                                                                                                                                                        | количество потоков mdig. используется при ресолвинге хостлистов                                                                               |
-| MDIG_EAGAIN                                                                                                                                                                                                                         | количество попыток при получении EAGAIN |
-| MDIG_EAGAIN_DELAY                                                                                                                                                                                                                   | задержка в мсек между попытками при получении EAGAIN |
+| MDIG_EAGAIN                                                                                                                                                                                                                         | количество попыток при получении EAI_AGAIN |
+| MDIG_EAGAIN_DELAY                                                                                                                                                                                                                   | задержка в мсек между попытками при получении EAI_AGAIN |
 | AUTOHOSTLIST_INCOMING_MAXSEQ<br>AUTOHOSTLIST_RETRANS_MAXSEQ<br>AUTOHOSTLIST_RETRANS_THRESHOLD<br>AUTOHOSTLIST_RETRANS_RESET<br>AUTOHOSTLIST_FAIL_THRESHOLD<br>AUTOHOSTLIST_FAIL_TIME<br>AUTOHOSTLIST_UDP_IN<br>AUTOHOSTLIST_UDP_OUT | параметры [автохостлистов](#детектор-неудач-автохостлистов)                                                                                   |
 | AUTOHOSTLIST_DEBUGLOG                                                                                                                                                                                                               | включение autohostlist debug log. лог пишется в `ipset/zapret-hosts-auto-debug.log`                                                           |
 | GZIP_LISTS                                                                                                                                                                                                                          | применять ли сжатие gzip для генерируемых хост и ip листов                                                                                    |

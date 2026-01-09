@@ -455,8 +455,8 @@ static void exithelp(void)
 	printf(
 		" --family=<4|6|46>\t\t; ipv4, ipv6, ipv4+ipv6\n"
 		" --threads=<threads_number>\n"
-		" --eagain=<eagain_retries>\t; how many times to retry if EAGAIN received. default %u\n"
-		" --eagain-delay=<ms>\t\t; time in msec to wait between EAGAIN attempts. default %u\n"
+		" --eagain=<eagain_retries>\t; how many times to retry if EAI_AGAIN received. default %u\n"
+		" --eagain-delay=<ms>\t\t; time in msec to wait between EAI_AGAIN attempts. default %u\n"
 		" --verbose\t\t\t; print query progress to stderr\n"
 		" --stats=N\t\t\t; print resolve stats to stderr every N domains\n"
 		" --log-resolved=<file>\t\t; log successfully resolved domains to a file\n"
