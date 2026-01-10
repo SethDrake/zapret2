@@ -780,7 +780,7 @@ On the next request, the host will be treated as if it were in the inclusion lis
 - In the static versions of `--ipset-ip` and `--hostlist-domains`, domains are separated by commas. The `#` and `^` symbols are also supported in static hostlists.
 - Gzip compression is supported for all list files.
 
-### Auto-hostlist failure detector
+### Autohostlist failure detector
 
 The detector only triggers when a hostname is present. A failure is defined as:
 
@@ -1484,7 +1484,6 @@ Before executing `--lua-init`, the C code sets up base constants, blobs, and C f
 | NFQWS2_COMPAT_VER | number | sequence number of incompatible interface changes with nfqws2 | incremented by 1 for each change |
 | b_debug | bool | --debug enabled | debug message output |
 | b_daemon | bool | --daemon enabled | daemonize process, detach from tty |
-
 | b_server                                                                                                                                                                                                                                                           | bool   | --server enabled                                                                                 | Server mode                                         |
 | b_ipcache_hostname                                                                                                                                                                                                                                                 | bool   | --ipcache-hostname enabled                                                                       | Caching of hostnames corresponding to IP addresses |
 | b_ctrack_disable                                                                                                                                                                                                                                                   | bool   | --ctrack-disable enabled                                                                         | Conntrack disabled                                  |
@@ -1494,7 +1493,6 @@ Before executing `--lua-init`, the C code sets up base constants, blobs, and C f
 | IP6_BASE_LEN                                                                                                                                                                                                                                                       | number | Base IPv6 header size                                                                            | 40                                                  |
 | TCP_BASE_LEN                                                                                                                                                                                                                                                       | number | Base TCP header size                                                                             | 20                                                  |
 | UDP_BASE_LEN                                                                                                                                                                                                                                                       | number | UDP header size                                                                                  | 8                                                   |
-
 | TCP_KIND_END<br>TCP_KIND_NOOP<br>TCP_KIND_MSS<br>TCP_KIND_SCALE<br>TCP_KIND_SACK_PERM<br>TCP_KIND_SACK<br>TCP_KIND_TS<br>TCP_KIND_MD5<br>TCP_KIND_AO<br>TCP_KIND_FASTOPEN | number | TCP option type codes (kinds) | |
 | TH_FIN<br>TH_SYN<br>TH_RST<br>TH_PUSH<br>TH_ACK<br>TH_FIN<br>TH_URG<br>TH_ECE<br>TH_CWR | number | TCP flags | Can be combined using + |
 | IP_MF | number | IP "more fragments" flag | 0x8000, part of the ip_off field |
@@ -1504,7 +1502,6 @@ Before executing `--lua-init`, the C code sets up base constants, blobs, and C f
 | IP_FLAGMASK | number | Bitmask for the ip_off field corresponding to IP flags | 0xE000 |
 | IPTOS_ECN_MASK | number | Bitmask for the ip_tos field corresponding to ECN | 0x03 |
 | IPTOS_ECN_NOT_ECT | number | Not ECN-Capable Transport | 0x00 |
-
 | IPTOS_ECN_ECT1                                                                                                                                                                                                                                                     | number | ECN Capable Transport(1)                                                                         | 0x01                                                |
 | IPTOS_ECN_ECT1                                                                                                                                                                                                                                                     | number | ECN Capable Transport(0)                                                                         | 0x02                                                |
 | IPTOS_ECN_CE1                                                                                                                                                                                                                                                      | number | Congestion Experienced                                                                           | 0x03                                                |
