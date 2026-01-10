@@ -273,11 +273,11 @@ zapret2 is a packet manipulator primarily designed to perform various autonomous
 
 The core component of zapret2 is the **nfqws2** program (**dvtws2** on BSD, **winws2** on Windows). Written in C, it serves as the primary packet manipulator. It includes functions for packet interception, basic [filtering](#using-multiple-profiles), recognition of major protocols and payloads, support for host and IP [lists](#filtering-by-lists), [automated](#failure-detector-and-auto-hostlists) hostlists with block detection, a system of multiple [profiles](#using-multiple-profiles) (strategies), [raw packet transmission](#receiving-and-sending-packets), and other utility functions. However, it does not contain the logic for traffic modification itself; this is handled by Lua code called from [nfqws2](#nfqws2).
 
-Consequently, the Lua code is the next most critical part of the project. The base package includes the [zapret-lib.lua](#base-function-library-zapret-liblua) helper library, the [zapret-antidpi.lua](#dpi-attack-program-library-zapret-antidpilua) DPI attack library, and the [zapret-auto.lua](#automation-and-orchestration-library-zapret-autolua) orchestration library for dynamic decision-making. Additionally, it features `zapret-tests.lua` for testing C functions, `zapret-wgobfs.lua` for WireGuard protocol obfuscation, and `zapret-pcap.lua` for capturing traffic into .cap files.
+Consequently, the Lua code is the next most critical part of the project. The base package includes the [zapret-lib.lua](#zapret-liblua-base-function-library) helper library, the [zapret-antidpi.lua](#zapret-antidpilua-dpi-attack-program-library) DPI attack library, and the [zapret-auto.lua](#zapret-autolua-automation-and-orchestration-library) orchestration library for dynamic decision-making. Additionally, it features `zapret-tests.lua` for testing C functions, `zapret-wgobfs.lua` for WireGuard protocol obfuscation, and `zapret-pcap.lua` for capturing traffic into .cap files.
 
-Traffic redirection from the kernel is handled by [iptables](#traffic-interception-in-the-linux-kernel) and [nftables](#traffic-interception-via-nftables) in [Linux](#traffic-interception-in-the-linux-kernel), [ipfw](#traffic-interception-in-the-freebsd-kernel) in [FreeBSD](#traffic-interception-in-the-freebsd-kernel), and [pf](#traffic-interception-in-the-openbsd-kernel) in [OpenBSD](#traffic-interception-in-the-openbsd-kernel). On [Windows](#traffic-interception-in-the-windows-kernel), this functionality is built directly into the winws2 process via the WinDivert driver. The kernel interception scheme, nfqws2, and the Lua code constitute the project's minimal working core. Everything else is supplementary, secondary, or optional.
+Traffic redirection from the kernel is handled by [iptables](#traffic-interception-using-iptables) and [nftables](#traffic-interception-using-nftables) in [Linux](#traffic-interception-in-the-linux-kernel), [ipfw](#traffic-interception-in-the-freebsd-kernel) in [FreeBSD](#traffic-interception-in-the-freebsd-kernel), and [pf](#traffic-interception-in-the-openbsd-kernel) in [OpenBSD](#traffic-interception-in-the-openbsd-kernel). On [Windows](#traffic-interception-in-the-windows-kernel), this functionality is built directly into the winws2 process via the WinDivert driver. The kernel interception scheme, nfqws2, and the Lua code constitute the project's minimal working core. Everything else is supplementary, secondary, or optional.
 
-Secondary components include Linux [startup scripts](#startup-scripts) (`init.d`, `common`, `ipset`, `install_easy.sh`, `uninstall_easy.sh`) and [blockcheck2](#blockcheck2), a tool for automated strategy testing. The purpose of the startup scripts is to coordinate the initialization of tables and nfqws2 instances while accounting for the specifics of various distributions (OpenWrt, systemd, OpenRC). They also provide support for synchronized updates of various [lists](#list-management-system) and [loading](#create_ipsetsh) IP lists into kernel-space (ipset). Users can implement these tasks using their own tools if preferred or if the provided [startup scripts](#startup-scripts) do not meet their needs. These scripts store all settings in a [config](#the-config-file) file located in the project root; this config is specific to the scripts, and nfqws2 is unaware of it.
+Secondary components include Linux [startup scripts](#startup-scripts) (`init.d`, `common`, `ipset`, `install_easy.sh`, `uninstall_easy.sh`) and [blockcheck2](#blockcheck2), a tool for automated strategy testing. The purpose of the startup scripts is to coordinate the initialization of tables and nfqws2 instances while accounting for the specifics of various distributions (OpenWrt, systemd, OpenRC). They also provide support for synchronized updates of various [lists](#list-management-system) and [loading](#create_ipsetsh) IP lists into kernel-space (ipset). Users can implement these tasks using their own tools if preferred or if the provided [startup scripts](#startup-scripts) do not meet their needs. These scripts store all settings in a [config](#config-file) file located in the project root; this config is specific to the scripts, and nfqws2 is unaware of it.
 
 Two C-based programs are provided for list processing: [mdig](#mdig), a multi-threaded hostlist resolver capable of handling lists of any size, and [ip2net](#ip2net), a tool for aggregating individual IP addresses into subnets to reduce their footprint. These programs are used by the startup scripts and in [blockcheck2](#blockcheck2).
 
@@ -304,7 +304,7 @@ For example, the XMPP protocol usually carries several types of XMPP-specific me
 The flow protocol remains "xmpp," but subsequent packets are assigned various payload types—both known and unknown. Unknown payloads are identified as "unknown."
 
 If a specific payload and flow protocol type require the reconstruction of a message from multiple packets, `nfqws2` begins buffering them in association with the `conntrack` record and prevents their immediate transmission. Once all packets of the message are received, the composite payload is reconstructed and, if necessary, decrypted.
-Further decisions are then made based on the fully assembled payload—[reasm](#multi-packet-payload-reception-details)—or the result of assembly and decryption—[decrypt](#multi-packet-payload-reception-details).
+Further decisions are then made based on the fully assembled payload—[reasm](#handling-multi-packet-payloads)—or the result of assembly and decryption—[decrypt](#handling-multi-packet-payloads).
 
 Once the necessary information about the payload is obtained, the [profile](#using-multiple-profiles) classification system takes over.
 Profiles contain a set of filters and action commands.
@@ -318,21 +318,21 @@ A re-lookup occurs if the source data changes—specifically, upon the detection
 
 Once a profile is selected, what constitutes its action-oriented logic? Actions are handled by Lua functions, and a profile can contain any number of them. Each call to a Lua function within a profile is referred to as an *instance*. A single function may be called multiple times with different parameters. Thus, the term "instance" describes a specific execution of a function, uniquely identified by the profile number and its sequential position within that profile. Instances are invoked using the `--lua-desync` parameters. Each instance receives an arbitrary set of arguments defined within `--lua-desync`. The execution order is critical to the strategy's logic and follows the exact sequence in which the `--lua-desync` parameters are specified.
 
-[Intra-profile filters](#внутрипрофильные-фильтры) are also available. There are three types: the `--payload` filter (a list of payloads accepted by the instance) and two range filters, `--in-range` and `--out-range`, which define the specific byte range within the stream that the instance should process. Once defined, intra-profile filters apply to all subsequent instances until they are redefined. The primary purpose of these filters is to minimize relatively slow Lua calls by offloading as much decision-making as possible to the C-side code.
+[in-profile filters](#in-profile-filters) are also available. There are three types: the `--payload` filter (a list of payloads accepted by the instance) and two range filters, `--in-range` and `--out-range`, which define the specific byte range within the stream that the instance should process. Once defined, in-profile filters apply to all subsequent instances until they are redefined. The primary purpose of these filters is to minimize relatively slow Lua calls by offloading as much decision-making as possible to the C-side code.
 
-When a packet reaches a Lua instance, the function receives two [parameters](#прототип-lua-функции): `ctx` and `desync`. `ctx` provides a context for interacting with specific C-side functions. The [`desync`](#структура-таблицы-desync) parameter is a table containing various attributes of the packet being processed. Most notably, it includes the [dissect](#структура-диссекта) (the `dis` subtable) and information from the conntrack entry (the [track subtable](#структура-track)). Numerous other parameters can be inspected by executing [`var_debug(desync)`](#var_debug) or by using the pre-built [`pktdebug`](#pktdebug) instance.
+When a packet reaches a Lua instance, the function receives two [parameters](#lua-function-prototype): `ctx` and `desync`. `ctx` provides a context for interacting with specific C-side functions. The [`desync`](#structure-of-the-desync-table) parameter is a table containing various attributes of the packet being processed. Most notably, it includes the [dissect](#структура-диссекта) (the `dis` subtable) and information from the conntrack entry (the [track subtable](#the-track-table-structure)). Numerous other parameters can be inspected by executing [`var_debug(desync)`](#var_debug) or by using the pre-built [`pktdebug`](#pktdebug) instance.
 
-During the [replay](#особенности-приема-многопакетных-пейлоадов) of delayed packets, the Lua instance receives details such as the part number, the total number of parts in the original message, the current part's position, and [reasm](#особенности-приема-многопакетных-пейлоадов) or [decrypt](#особенности-приема-многопакетных-пейлоадов) data if available.
+During the [replay](#handling-multi-packet-payloads) of delayed packets, the Lua instance receives details such as the part number, the total number of parts in the original message, the current part's position, and [reasm](#handling-multi-packet-payloads) or [decrypt](#handling-multi-packet-payloads) data if available.
 
-Lua code can utilize the global variable space to store data that isn't specific to a single packet. It also has access to the [`desync.track.lua_state`](#структура-track) table, where it can store any information tied to the conntrack entry; this table remains consistent across every packet in the stream. Conversely, the `desync` table can be used to generate and store temporary data relevant only to the current packet's processing chain. Subsequent Lua instances receive the same `desync` table, allowing them to inherit data from previous instances.
+Lua code can utilize the global variable space to store data that isn't specific to a single packet. It also has access to the [`desync.track.lua_state`](#the-track-table-structure) table, where it can store any information tied to the conntrack entry; this table remains consistent across every packet in the stream. Conversely, the `desync` table can be used to generate and store temporary data relevant only to the current packet's processing chain. Subsequent Lua instances receive the same `desync` table, allowing them to inherit data from previous instances.
 
-A Lua instance can clone the current dissect, modify it, generate its own dissects, and [send](#прием-и-отсылка-пакетов) them via C-side calls. The output of each instance is a verdict: `VERDICT_PASS` (do nothing with the current dissect), `VERDICT_MODIFY` (send the modified dissect content at the end of the processing chain), or `VERDICT_DROP` (drop the current dissect). Verdicts from all instances are aggregated: `MODIFY` overrides `PASS`, and `DROP` overrides both `PASS` and `MODIFY`.
+A Lua instance can clone the current dissect, modify it, generate its own dissects, and [send](#receiving-and-sending-packets) them via C-side calls. The output of each instance is a verdict: `VERDICT_PASS` (do nothing with the current dissect), `VERDICT_MODIFY` (send the modified dissect content at the end of the processing chain), or `VERDICT_DROP` (drop the current dissect). Verdicts from all instances are aggregated: `MODIFY` overrides `PASS`, and `DROP` overrides both `PASS` and `MODIFY`.
 
 A Lua instance can opt out of receiving further packets for a flow in the in/out direction—this is known as [instance cutoff](#instance_cutoff).
 It can also disconnect the in/out direction of the current flow from all Lua processing—[lua cutoff](#lua_cutoff).
 An instance can request the [cancellation](#execution-plan-cancel) of the entire subsequent chain of Lua instance calls for the current dissect. The instance making this decision takes on the role of coordinating further actions.
 Such an instance is called an **orchestrator**. It receives an [execution plan](#execution_plan) from the C code, which includes all profile filters and call parameters for all remaining instances. It then decides when and under what conditions to invoke them (or not) and whether to modify their parameters. This enables dynamic scenarios without modifying the core strategy code.
-Examples include [detecting](#детекция-удач-и-неудач) resource blocking and [switching strategies](#circular) if the previous one failed.
+Examples include [detecting](#success-and-failure-detection) resource blocking and [switching strategies](#circular) if the previous one failed.
 
 If all instances in the current profile have entered a cutoff state for the current flow, or if the current flow position is beyond the upper bound of the range filters, no further Lua calls will be made for this flow. The C code marks such flows with a special "lua cutoff" flag, which is checked as efficiently as possible without invoking Lua code, thereby saving CPU resources.
 
@@ -348,7 +348,7 @@ This is achieved using `iptables` or `nftables` via the NFQUEUE mechanism.
 `nftables` is preferred because it allows working with traffic after NAT, whereas `iptables` does not. This is critical when processing forwarded traffic. With `iptables`, post-NAT interception is impossible; therefore, certain techniques that break NAT cannot be implemented on forwarded traffic using `iptables`.
 `nftables` has one significant drawback: excessive memory requirements when loading large sets. For example, loading 100K IP addresses requires 256–320 MB, which often exceeds the capacity of many routers. `ipset` (used with `iptables`) can handle this even with 64 MB of RAM.
 
-If you have to choose between `iptables` and `nftables`, you should definitely choose `nftables`. Support for `nftables` in the [startup scripts](#скрипты-запуска) is more robust, and the technology itself is much more "neighbor-friendly" toward rules from other programs because it uses separate tables. In `iptables`, everything is mixed together, and one program's rules might break another's. `iptables` should be considered a legacy option for compatibility when no other choice exists. In a modern Linux distribution, you should definitely avoid `iptables`. However, if you are using an older Linux version (kernel older than 5.15 or `nft` older than 1.0.1) and cannot upgrade, `iptables` is better, as older kernels and `nft` versions will have issues.
+If you have to choose between `iptables` and `nftables`, you should definitely choose `nftables`. Support for `nftables` in the [startup scripts](#startup-scripts) is more robust, and the technology itself is much more "neighbor-friendly" toward rules from other programs because it uses separate tables. In `iptables`, everything is mixed together, and one program's rules might break another's. `iptables` should be considered a legacy option for compatibility when no other choice exists. In a modern Linux distribution, you should definitely avoid `iptables`. However, if you are using an older Linux version (kernel older than 5.15 or `nft` older than 1.0.1) and cannot upgrade, `iptables` is better, as older kernels and `nft` versions will have issues.
 
 The following test examples are intended for custom startup systems or manual execution.
 The `zapret` startup scripts generate the necessary rules automatically; you do not need to write `ip/nf tables` rules yourself.
@@ -654,12 +654,12 @@ MULTI-STRATEGY:
  --hostlist-auto-debug=<logfile>                        ; auto-list debug log
 
 LUA PACKET PASS MODE:
- --payload=type[,type]                                  ; intra-profile filter: payload filter for subsequent instances within the profile. A list of payloads is available in the program's help text.
- --out-range=[(n|a|d|s|p)<int>](-|<)[(n|a|d|s|p)<int>]  ; intra-profile filter: conntrack counter range for subsequent instances within the profile - outgoing direction
- --in-range=[(n|a|d|s|p)<int>](-|<)[(n|a|d|s|p)<int>]   ; intra-profile filter: conntrack counter range for subsequent instances within the profile - incoming direction
+ --payload=type[,type]                                  ; in-profile filter: payload filter for subsequent instances within the profile. A list of payloads is available in the program's help text.
+ --out-range=[(n|a|d|s|p)<int>](-|<)[(n|a|d|s|p)<int>]  ; in-profile filter: conntrack counter range for subsequent instances within the profile - outgoing direction
+ --in-range=[(n|a|d|s|p)<int>](-|<)[(n|a|d|s|p)<int>]   ; in-profile filter: conntrack counter range for subsequent instances within the profile - incoming direction
 
 LUA DESYNC ACTION:
- --lua-desync=<function>[:param1=val1[:param2=val2]]    ; call a LUA instance with the specified parameters during profile processing if intra-profile filter conditions are met
+ --lua-desync=<function>[:param1=val1[:param2=val2]]    ; call a LUA instance with the specified parameters during profile processing if in-profile filter conditions are met
 ```
 
 Specific parameters for nfqws2:
@@ -830,7 +830,7 @@ Therefore, direction in `nfqws2` is handled by tracking flows. A flow is either 
 
 A flow is characterized by a 4-tuple: ip1:port1-ip2:port2. This set of values determines which flow a packet belongs to.
 
-In `nfqws2`, flows are tracked by `conntrack`. The party that sends the first SYN (TCP) or the first UDP packet is considered the client, and the opposite end is the server. If a flow entry in `conntrack` was created by a SYN,ACK packet (TCP), that end is considered the server and the opposite end the client. In this way, `conntrack` determines the roles in establishing the connection and maintains a separate set of [counters](#track-structure) for each role—how many packets have passed, how many data packets, how many bytes transferred, etc.
+In `nfqws2`, flows are tracked by `conntrack`. The party that sends the first SYN (TCP) or the first UDP packet is considered the client, and the opposite end is the server. If a flow entry in `conntrack` was created by a SYN,ACK packet (TCP), that end is considered the server and the opposite end the client. In this way, `conntrack` determines the roles in establishing the connection and maintains a separate set of [counters](#the-track-table-structure) for each role—how many packets have passed, how many data packets, how many bytes transferred, etc.
 
 In client mode, the "outgoing" direction is considered the direction from the client; in server mode (`--server`), it is the direction from the server. The "inbound" direction is the opposite.
 
@@ -995,7 +995,7 @@ The following example demonstrates a setup where we attempt to use specific "fak
 --lua-desync=multisplit:strategy=2
 ```
 
-The specific mechanics of these functions are less important here; the focus is on understanding how intra-profile filters operate and how parameters are passed to Lua instances.
+The specific mechanics of these functions are less important here; the focus is on understanding how in-profile filters operate and how parameters are passed to Lua instances.
 
 - The profile filter for TCP ports and protocol types prevents Lua from being called for irrelevant traffic. The profile will not be engaged at all if the filter conditions are not met.
 - `--out-range` is specified to cut off the outbound flow from Lua after a relative sequence of (32768 + 1460) to save CPU. This value is chosen due to the specifics of the `circular` function: the `s32768` value is used as the default trigger threshold in the success detector, and `1460` is the maximum possible data length in a TCP packet. This may be unnecessary on Linux if the `connbytes` filter is used.
@@ -2045,7 +2045,7 @@ A `lua_cutoff` state can also occur naturally if all instances have exceeded the
 function execution_plan(ctx)
 ```
 
-Returns an array of information about all subsequent, pending instances in the current profile, their intra-profile filters, and arguments.
+Returns an array of information about all subsequent, pending instances in the current profile, their in-profile filters, and arguments.
 
 **Plan Element**
 
@@ -2054,7 +2054,7 @@ Returns an array of information about all subsequent, pending instances in the c
 | func           | string | desync function name                                                                                                                      |
 | func_n         | number | instance number within the profile                                                                                                        |
 | func_instance  | string | instance name (derived from the function name, instance number, and profile number)                                                       |
-| range          | table  | effective range of [counters](#intra-profile-filters) `--in-range` or `--out-range` depending on the current direction                    |
+| range          | table  | effective range of [counters](#in-profile-filters) `--in-range` or `--out-range` depending on the current direction                       |
 | payload_filter | string | effective `--payload-filter`. A comma-separated list of payload names.                                                                    |
 
 **range**
@@ -2145,7 +2145,7 @@ function detect_payload_str(ctx, desync)
 
 Example of a basic protocol detector. It searches for a `pattern` in the payload; if found, it sets `desync.l7payload = desync.arg.payload`. Otherwise, if `desync.arg.undetected` is provided, it sets `desync.l7payload = desync.arg.undetected`.
 
-Protocol detectors of this type have no effect on the underlying C code. The C implementation knows nothing about your custom protocol or payload type. Your value cannot be specified in the `--payload` parameter. However, it can be used with the [payload filters](#standard-payload) of many [desync functions](#library-of-dpi-attack-programs-zapret-antidpilua).
+Protocol detectors of this type have no effect on the underlying C code. The C implementation knows nothing about your custom protocol or payload type. Your value cannot be specified in the `--payload` parameter. However, it can be used with the [payload filters](#standard-payload) of many [desync functions](#zapret-antidpilua-dpi-attack-program-library).
 
 ### desync_orchestrator_example
 
@@ -2761,7 +2761,7 @@ Then, initiate a TLS request.
 Successfully parsed elements are presented as `dis` subtables, while others remain as `raw data` fields.
 Some elements include a `name` field for visual analysis purposes only; the `type` fields are the primary identifiers.
 
-To locate values within lists, use the [array search functions](#utility-functions).
+To locate values within lists, use the [array search functions](#array_search).
 
 Numerous TLS-related constants are defined in `zapret-lib.lua`. Before hardcoding values, check if a suitable constant already exists.
 
@@ -3149,9 +3149,9 @@ These functions operate on a string representing a comma-separated list of paylo
 
 ## Working with multi-packet payloads
 
-Typically, operations are performed on the entire [reasm](#особенности-приема-многопакетных-пейлоадов) rather than its individual parts. This is the purpose of reassembly: to avoid dealing with separate packets and instead process the entire message at once.
+Typically, operations are performed on the entire [reasm](#handling-multi-packet-payloads) rather than its individual parts. This is the purpose of reassembly: to avoid dealing with separate packets and instead process the entire message at once.
 
-The standard scenario involves processing after receiving the first part of a [replay](#особенности-приема-многопакетных-пейлоадов) and either ignoring or dropping the remaining parts. The choice between ignoring or dropping may depend on the success of actions involving [reasm](#особенности-приема-многопакетных-пейлоадов). For example, whether or not a segmented [reasm](#особенности-приема-многопакетных-пейлоадов) was successfully sent. If successful, all other parts must be dropped; otherwise, they will be sent as duplicates in the original segmentation. If an error occurs and the segmented packets could not be sent, dropping the rest would prevent the full message from reaching the recipient, leading to retransmissions. In such cases, it is better to leave them as is—this way, nothing breaks.
+The standard scenario involves processing after receiving the first part of a [replay](#handling-multi-packet-payloads) and either ignoring or dropping the remaining parts. The choice between ignoring or dropping may depend on the success of actions involving [reasm](#handling-multi-packet-payloads). For example, whether or not a segmented [reasm](#handling-multi-packet-payloads) was successfully sent. If successful, all other parts must be dropped; otherwise, they will be sent as duplicates in the original segmentation. If an error occurs and the segmented packets could not be sent, dropping the rest would prevent the full message from reaching the recipient, leading to retransmissions. In such cases, it is better to leave them as is—this way, nothing breaks.
 
 ```
 function replay_first(desync)
@@ -3159,11 +3159,11 @@ function replay_drop_set(desync, v)
 function replay_drop(desync)
 ```
 
-- `replay_first` returns true if the current dissect is not a [replay](#особенности-приема-многопакетных-пейлоадов) or is its first part.
-- `replay_drop_set` marks a boolean flag `v` in `desync.track.lua_state` indicating whether subsequent parts of a [replay](#особенности-приема-многопакетных-пейлоадов) should be dropped.
-- `replay_drop` returns true if the current part of the [replay](#особенности-приема-многопакетных-пейлоадов) needs to be dropped. If the part is the last one, it automatically clears the flag.
+- `replay_first` returns true if the current dissect is not a [replay](#handling-multi-packet-payloads) or is its first part.
+- `replay_drop_set` marks a boolean flag `v` in `desync.track.lua_state` indicating whether subsequent parts of a [replay](#handling-multi-packet-payloads) should be dropped.
+- `replay_drop` returns true if the current part of the [replay](#handling-multi-packet-payloads) needs to be dropped. If the part is the last one, it automatically clears the flag.
 
-These functions work correctly with both [replays](#особенности-приема-многопакетных-пейлоадов) and regular dissects. For regular dissects, `replay_first` is always true, `replay_drop_set` does not change the flag, and `replay_drop` is always false.
+These functions work correctly with both [replays](#handling-multi-packet-payloads) and regular dissects. For regular dissects, `replay_first` is always true, `replay_drop_set` does not change the flag, and `replay_drop` is always false.
 
 ## Orchestration
 
@@ -3224,7 +3224,7 @@ Aggregates verdicts v1 and v2. VERDICT_MODIFY overrides VERDICT_PASS, while VERD
 function plan_instance_execute(desync, verdict, instance)
 ```
 
-Executes an [execution plan](#execution_plan) `instance`, taking into account the [instance cutoff](#instance_cutoff) and standard [payload](#внутрипрофильные-фильтры) and [range](#внутрипрофильные-фильтры) filters.
+Executes an [execution plan](#execution_plan) `instance`, taking into account the [instance cutoff](#instance_cutoff) and standard [payload](#in-profile-filters) and [range](#in-profile-filters) filters.
 Returns the aggregation of the current verdict and the `instance` verdict.
 
 ### plan_instance_pop
@@ -3258,7 +3258,7 @@ If `ctx=nil`, it does nothing, assuming the plan is already in `desync.plan`.
 function replay_execution_plan(desync)
 ```
 
-Executes the entire [execution plan](#execution_plan) from `desync.plan`, respecting the [instance cutoff](#instance_cutoff) and standard [payload](#внутрипрофильные-фильтры) and [range](#внутрипрофильные-фильтры) filters.
+Executes the entire [execution plan](#execution_plan) from `desync.plan`, respecting the [instance cutoff](#instance_cutoff) and standard [payload](#in-profile-filters) and [range](#in-profile-filters) filters.
 
 # zapret-antidpi.lua DPI attack program library
 
@@ -3276,7 +3276,7 @@ nfqws2 has no knowledge of what `--lua-desync` functions require. Therefore, fil
 
 ### standard direction
 
-Direction filter. In most functions using a direction filter, the default value is "out", though some default to "any". Direction filtering can also be implemented using C code via [`--in-range` and `--out-range`](#внутрипрофильные-фильтры).
+Direction filter. In most functions using a direction filter, the default value is "out", though some default to "any". Direction filtering can also be implemented using C code via [`--in-range` and `--out-range`](#in-profile-filters).
 
 **standard direction**
 
@@ -3461,7 +3461,7 @@ function tls_client_hello_clone(ctx, desync)
 - arg: sni_first - add a host to the beginning of the list
 - arg: sni_last - add a host to the end of the list
 
-Prepares a blob with the specified name in the desync table, filled with the result of modifying the current [reasm](#особенности-приема-многопакетных-пейлоадов).
+Prepares a blob with the specified name in the desync table, filled with the result of modifying the current [reasm](#handling-multi-packet-payloads).
 Works only with TCP and the `tls_client_hello` payload. If an SNI modification is specified and the SNI extension is missing, it is added to the beginning of the extensions list.
 
 Order of operations:
@@ -3601,9 +3601,9 @@ function multidisorder_legacy(ctx, desync)
 
 A multidisorder implementation fully compatible with nfqws1.
 
-The new multidisorder works with the entire [reasm](#особенности-приема-многопакетных-пейлоадов) (reassembly), whereas the legacy nfqws1 version works with individual [replay](#особенности-приема-многопакетных-пейлоадов) segments. Consequently, the sequence of parts will differ when handling multi-packet requests.
+The new multidisorder works with the entire [reasm](#handling-multi-packet-payloads) (reassembly), whereas the legacy nfqws1 version works with individual [replay](#handling-multi-packet-payloads) segments. Consequently, the sequence of parts will differ when handling multi-packet requests.
 
-In the new version, the original segmentation is not preserved. If any split segment exceeds the MSS, it is further divided by the MSS and sent in ascending sequence order. In the legacy version, the original segmentation was preserved. Split points were normalized based on the offset of each individual [reasm](#особенности-приема-многопакетных-пейлоадов) part. Segments were sent in reverse order only within each part, while the subsequent part followed with its original sequence increment. Similarly, seqovl was normalized and applied only within the original segment where the normalized position was located.
+In the new version, the original segmentation is not preserved. If any split segment exceeds the MSS, it is further divided by the MSS and sent in ascending sequence order. In the legacy version, the original segmentation was preserved. Split points were normalized based on the offset of each individual [reasm](#handling-multi-packet-payloads) part. Segments were sent in reverse order only within each part, while the subsequent part followed with its original sequence increment. Similarly, seqovl was normalized and applied only within the original segment where the normalized position was located.
 
 ### fakedsplit
 
@@ -3662,12 +3662,12 @@ function fakeddisorder(ctx, desync)
 - arg: [standard rawsend](#standard-rawsend)
 - arg: pos - a single [marker](#markers) — the split point. Defaults to "2".
 - arg: seqovl - [marker](#markers) — offset relative to the current sequence to create an additional segment part extending to the left.
-- arg: seqovl_pattern - [blob](#blob-transfer) used to fill the seqovl. Defaults to 0x00.
-- arg: blob - replace the current payload with the specified [blob](#blob-transfer).
+- arg: seqovl_pattern - [blob](#passing-blobs) used to fill the seqovl. Defaults to 0x00.
+- arg: blob - replace the current payload with the specified [blob](#passing-blobs).
 - arg: optional - abort the operation if a blob is specified but missing. If seqovl_pattern is specified but missing, use the 0x00 pattern.
 - arg: nodrop - skip issuing a VERDICT_DROP.
 - arg: nofake1, nofake2, nofake3, nofake4 - skip sending specific fake packets.
-- arg: pattern - [blob](#blob-transfer) used to fill the fake segments. Defaults to 0x00.
+- arg: pattern - [blob](#passing-blobs) used to fill the fake segments. Defaults to 0x00.
 - default payload filter - "known"
 
 This function operates similarly to multidisorder with a single split point, but it intersperses fake segments among the real ones. The fakes match the size of the transmitted parts and are generated based on the pattern, with an offset corresponding to the TCP sequence offset of the transmitted part relative to the first one.
@@ -3689,7 +3689,7 @@ In addition to confusing the DPI with real and fake segments, the sequence itsel
 - ipid_opts and rawsend_opts are applied to both fakes and originals. ipfrag_opts are not used for either fakes or originals.
 
 If the transmission is successful, a VERDICT_DROP is issued unless "nodrop" is specified.
-The [blob](#blob-transfer) option allows replacing the current payload with an arbitrary [blob](#blob-transfer), thereby sending any compatible payload using the same splitting logic.
+The [blob](#passing-blobs) option allows replacing the current payload with an arbitrary [blob](#passing-blobs), thereby sending any compatible payload using the same splitting logic.
 
 ### hostfakesplit
 
@@ -3707,7 +3707,7 @@ function hostfakesplit(ctx, desync)
 - arg: midhost - [marker](#markers) for an additional split of the segment containing the real host.
 - arg: disorder_after - [marker](#markers) for an additional split of the final real part and sending segments in reverse order.
 - arg: nofake, nofake2 - skip sending specific fake packets.
-- arg: blob - replace the current payload with the specified [blob](#blob-transfer).
+- arg: blob - replace the current payload with the specified [blob](#passing-blobs).
 - arg: optional - abort the operation if the blob is specified but missing.
 - arg: nodrop - skip issuing a VERDICT_DROP.
 - default payload filter - "known"
@@ -3729,7 +3729,7 @@ Transmission sequence:
 - `ipid_opts` and `rawsend_opts` apply to both fakes and originals. `ipfrag_opts` are not used for either fakes or originals.
 
 In case of successful transmission, a `VERDICT_DROP` is issued unless "nodrop" is specified.
-The [blob](#blob-transfer) allows replacing the current payload with an arbitrary [blob](#blob-transfer), thereby sending any compatible payload with the same splitting.
+The [blob](#passing-blobs) allows replacing the current payload with an arbitrary [blob](#passing-blobs), thereby sending any compatible payload with the same splitting.
 
 ### tcpseg
 
@@ -3746,8 +3746,8 @@ function tcpseg(ctx, desync)
 - arg: [standard rawsend](#standard-rawsend)
 - arg: pos - a list of two [markers](#markers) defining the boundaries of the TCP segment
 - arg: seqovl - a number representing the offset relative to the current sequence to create an additional segment part that extends to the left beyond the TCP window boundary
-- arg: seqovl_pattern - a [blob](#blob-transfer) used to fill the seqovl. Defaults to 0x00
-- arg: blob - replace the current payload with the specified [blob](#blob-transfer)
+- arg: seqovl_pattern - a [blob](#passing-blobs) used to fill the seqovl. Defaults to 0x00
+- arg: blob - replace the current payload with the specified [blob](#passing-blobs)
 - arg: optional - skip the operation if a blob is specified but missing. If `seqovl_pattern` is specified but missing, use the 0x00 pattern.
 - default payload filter - "known"
 
@@ -3778,7 +3778,7 @@ function udplen(ctx, desync)
 - arg: min - do not touch packets with an L4 payload length smaller than this
 - arg: max - do not touch packets with an L4 payload length larger than this
 - arg: increment - how much to increase (+) or decrease (-) the L4 payload length
-- arg: pattern - the [blob](#blob-transfer) used to fill the end of the packet when increasing the length
+- arg: pattern - the [blob](#passing-blobs) used to fill the end of the packet when increasing the length
 - arg: pattern_offset - initial offset within the pattern
 - default payload filter - "known"
 
@@ -3827,15 +3827,15 @@ Many DPIs expect a standard response to a SYN in the form of a SYN,ACK. In reali
 
 # zapret-auto.lua automation and orchestration Library
 
-The standard order of instance application is linear—from left to right, taking into account [intra-profile filters](#внутрипрофильные-фильтры) and [instance cutoff](#instance_cutoff). nfqws2 provides no other options by default.
+The standard order of instance application is linear—from left to right, taking into account [in-profile filters](#in-profile-filters) and [instance cutoff](#instance_cutoff). nfqws2 provides no other options by default.
 
 Of course, you can write your own Lua function that does what is needed when it is needed. However, you would have to reinvent the wheel, duplicate code, or worse—patch standard antidpi functions to add your own features and then maintain them yourself.
 
 The essence of orchestration mechanisms is to separate the control logic from the logic of the actual actions. This way, nothing needs to be patched, and if you do write your own functions, you only need to write the control algorithm itself without mixing it with action algorithms.
 
-Orchestration is inextricably linked to the concept of an [execution plan](#execution_plan). It includes a list of instances that need to be called sequentially with their parameters and [filters](#внутрипрофильные-фильтры). A basic linear orchestrator is built into the C code, but this role can also be taken over by a Lua function where any logic can be programmed.
+Orchestration is inextricably linked to the concept of an [execution plan](#execution_plan). It includes a list of instances that need to be called sequentially with their parameters and [filters](#in-profile-filters). A basic linear orchestrator is built into the C code, but this role can also be taken over by a Lua function where any logic can be programmed.
 
-For example, you can create automatic strategies—if one doesn't work, use another. The C code has similar logic only within the [automatic hostlist](#фильтрация-по-листам) mechanism, but it does not implement dynamic strategy switching.
+For example, you can create automatic strategies—if one doesn't work, use another. The C code has similar logic only within the [automatic hostlist](#filtering-by-lists) mechanism, but it does not implement dynamic strategy switching.
 
 ## State storage
 
@@ -3952,7 +3952,7 @@ function standard_failure_detector(desync, crec)
 
 Standard failure detector.
 
-DPI-based HTTP redirects are defined the same way as in [autohostlists](#детектор-неудач-автохостлистов).
+DPI-based HTTP redirects are defined the same way as in [autohostlists](#autohostlist-failure-detector).
 
 ## Orchestrators
 
@@ -3993,7 +3993,7 @@ function repeater(ctx, desync)
 - arg: repeats - the number of repetitions.
 - arg: stop - do not execute the instances following "instances" as a standalone pass.
 - arg: clear - clear the execution plan after repetitions.
-- arg: iff - the name of the [condition function](#iff-функции) for continuing the repetition cycle. If not specified, the condition is always true.
+- arg: iff - the name of the [condition function](#iff-functions) for continuing the repetition cycle. If not specified, the condition is always true.
 - arg: neg - invert the `iff` value. Default is false.
 
 As the name suggests, the `repeater` orchestrator repeats the subsequent `instances` a specified number of `repeats`. The repetition follows the pattern `1-2-3-1-2-3-1-2-3-4-5-6`. In this example, `4-5-6` are the instances following the first three, assuming `instances=3`. If `stop` or `clear` is specified, `4-5-6` are not called. The `clear` flag additionally clears the execution plan, which is useful for interacting with higher-level orchestrators.
@@ -4169,7 +4169,7 @@ A test consists of a set of pluggable shell scripts used to test a specific grou
 
 Test suites are located in the `blockcheck2.d` subdirectories. The name of the subdirectory corresponds to the name of the test.
 
-By default, blockcheck2 runs in interactive mode, displaying messages and prompting the user for parameters. However, since there are many parameters, it only asks for the most essential ones. The rest are passed via [shell variables](#shell-переменные).
+By default, blockcheck2 runs in interactive mode, displaying messages and prompting the user for parameters. However, since there are many parameters, it only asks for the most essential ones. The rest are passed via [shell variables](#shell-variables).
 
 A typical launch scheme using variables:
 
@@ -4183,7 +4183,7 @@ In the [win bundle](https://github.com/bol-van/zapret-win-bundle), you can use t
 
 Sequential testing of multiple domains is possible. To do this, specify them separated by spaces.
 
-URIs such as `rutracker.org/forum/index.php` are supported. There should be no protocol prefix like `https://`. By default, the root URI ('/') is used. HTTP is tested using the GET method, while HTTPS uses the HEAD method, as nothing is visible under TLS anyway. However, there are situations where blocking does not occur immediately, but rather upon a long server response. In this case, you can use [CURL_HTTPS_GET=1](#shell-переменные) and specify a URI where the server returns a long response.
+URIs such as `rutracker.org/forum/index.php` are supported. There should be no protocol prefix like `https://`. By default, the root URI ('/') is used. HTTP is tested using the GET method, while HTTPS uses the HEAD method, as nothing is visible under TLS anyway. However, there are situations where blocking does not occur immediately, but rather upon a long server response. In this case, you can use [CURL_HTTPS_GET=1](#shell-variables) and specify a URI where the server returns a long response.
 
 blockcheck2 is not a panacea; it is not a tool for generating "magic strings" that you can simply paste somewhere to make sites start working. It is a customizable tool for researching DPI and automating routine tasks. Understanding the results and how to apply them is the responsibility of the user.
 
@@ -4655,7 +4655,7 @@ The sysv variant is intended for any Linux distribution other than OpenWRT. On s
 
 If the OS uses a firewall management system, conflicts may occur between it and zapret. Most commonly, these manifest as race conditions—a competition over who populates the rules first or clears the other's rules. This leads to chaos: sometimes it works, sometimes it doesn't, or only one component functions, making the overall state unpredictable. Race conditions usually happen with iptables because it uses shared tables. nftables generally avoids these issues since each application uses its own table. However, if the firewall management system decides to flush the entire ruleset, a race condition will still occur.
 
-If you encounter race conditions or conflicts, the best solution is synchronization. Disable `INIT_APPLY_FW` in the [config](#файл-config) file; this prevents the `start` command scripts from launching the firewall and creating a conflict. Next, determine how to trigger a third-party script to apply additional rules once your system's primary firewall is up. This script should be `zapret2 start_fw`. You can also integrate `stop_fw` and `restart_fw` in a similar fashion. Alternatively, you can take the opposite approach: use the `zapret` firewall initialization as a base and utilize [firewall hooks](#файл-config) to trigger your system's firewall management commands. Ensure that your firewall management system does not overwrite or wipe the `zapret` rules.
+If you encounter race conditions or conflicts, the best solution is synchronization. Disable `INIT_APPLY_FW` in the [config](#config-file) file; this prevents the `start` command scripts from launching the firewall and creating a conflict. Next, determine how to trigger a third-party script to apply additional rules once your system's primary firewall is up. This script should be `zapret2 start_fw`. You can also integrate `stop_fw` and `restart_fw` in a similar fashion. Alternatively, you can take the opposite approach: use the `zapret` firewall initialization as a base and utilize [firewall hooks](#config-file) to trigger your system's firewall management commands. Ensure that your firewall management system does not overwrite or wipe the `zapret` rules.
 
 If your firewall management system only works with its own rules and is highly incompatible with third-party additions, you might consider bypassing the startup scripts entirely. Instead, determine how to manually add `NFQUEUE` rules according to its specific logic and run the daemons separately via your distribution's init system. If this is undesirable or impossible, you may want to consider switching to a different firewall management system or abandoning it altogether.
 
@@ -4665,7 +4665,7 @@ OpenWRT comes with ready-made firewall integration. The startup scripts automati
 
 ### Custom scripts
 
-The standard [NFQWS2_OPT](#файл-config) instance cannot always solve highly specific tasks. Interception is performed only by port. There is no way to include additional conditions—for example, intercepting a specific payload on any port, setting a specific `connbytes` filter, or using a special kernel `ipset` to apply unique strategies to that intercepted traffic.
+The standard [NFQWS2_OPT](#config-file) instance cannot always solve highly specific tasks. Interception is performed only by port. There is no way to include additional conditions—for example, intercepting a specific payload on any port, setting a specific `connbytes` filter, or using a special kernel `ipset` to apply unique strategies to that intercepted traffic.
 
 Since these requirements are often very specific, they are not included in the core functionality. Instead, a system of custom scripts has been created. These are shell includes located in `init.d/sysv/custom.d` or `init.d/openwrt/custom.d`. Their primary task is to apply the firewall rules you need and launch `nfqws2` instances with the required parameters. Other auxiliary actions are also possible.
 
@@ -4676,7 +4676,7 @@ A custom script can contain the following shell functions, which are called by t
 - **zapret_custom_firewall_nft** — applies `nftables` rules. A stop function is not required because the main code clears the `nft` chains along with custom rules upon stopping.
 - **zapret_custom_firewall_nft_flush** — called when `nftables` is stopped to allow for the removal of objects outside the standard chains, such as custom sets or custom chains.
 
-If you do not need `iptables` or `nftables`, you do not need to write functions for that specific firewall type. It is highly recommended to use the core code's helpers within these functions; this allows you to follow the startup script ideology without needing to focus on low-level details. You can freely reference variables from the [config](#файл-config) and add your own.
+If you do not need `iptables` or `nftables`, you do not need to write functions for that specific firewall type. It is highly recommended to use the core code's helpers within these functions; this allows you to follow the startup script ideology without needing to focus on low-level details. You can freely reference variables from the [config](#config-file) and add your own.
 
 The best way to start writing your own scripts is to study the examples provided in `init.d/custom.d.examples.linux`.
 
