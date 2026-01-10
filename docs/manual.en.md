@@ -4189,7 +4189,7 @@ blockcheck2 is not a panacea; it is not a tool for generating "magic strings" th
 
 You should also not expect highly complex strategy selection algorithms from blockcheck. Shell scripts are not a full-fledged programming language and lack the tools to work with complex data structures. Shell programming often becomes a struggle when dealing with complex data, as it must somehow be recorded into a linear set of environment variables.
 
-blockcheck2 works on all supported platforms: Linux, FreeBSD, OpenBSD, and Windows. On Windows, the easiest way to use it is through the [win bundle](https://github.com/bol-van/zapret-win-bundle)-a minimal cygwin system pre-configured for zapret.
+blockcheck2 works on all supported platforms: Linux, FreeBSD, OpenBSD, and Windows. On Windows, the easiest way to use it is through the [win bundle](https://github.com/bol-van/zapret-win-bundle) - a minimal cygwin system pre-configured for zapret.
 
 ## DNS check
 
