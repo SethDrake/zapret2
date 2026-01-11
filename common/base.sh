@@ -366,7 +366,7 @@ random()
 	local r rs
 	setup_random
 	if [ -c /dev/urandom ]; then
-		read rs </dev/urandom
+		rs=$(dd if=/dev/urandom count=1 bs=16 2>/dev/null | hexdump -e '1 "%02x"')
 	else
 		rs="$RANDOM$RANDOM$(date)"
 	fi
