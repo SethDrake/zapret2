@@ -15,6 +15,7 @@
 - [nfqws2](#nfqws2)
   - [General principles for setting parameters](#general-principles-for-setting-parameters)
   - [Full list of options](#full-list-of-options)
+  - [Protocol detection](#protocol-detection)
   - [Using multiple profiles](#using-multiple-profiles)
     - [Profile templates](#profile-templates)
     - [Filtering by lists](#filtering-by-lists)
@@ -634,7 +635,7 @@ MULTI-STRATEGY:
  --filter-l3=ipv4|ipv6                                  ; profile filter: IP protocol version
  --filter-tcp=[~]port1[-port2]|*                        ; profile filter: TCP ports or port ranges (comma-separated)
  --filter-udp=[~]port1[-port2]|*                        ; profile filter: UDP ports or port ranges (comma-separated)
- --filter-l7=proto[,proto]                              ; profile filter: list of application-layer protocols. A full list is available in the program's help text.
+ --filter-l7=proto[,proto]                              ; profile filter: list of application-layer protocols
  --ipset=<filename>                                     ; profile filter: inclusion list of IP addresses or subnets from a file (supports mixed IPv4/IPv6)
  --ipset-ip=<ip_list>                                   ; profile filter: fixed inclusion list of IP addresses or subnets (comma-separated)
  --ipset-exclude=<filename>                             ; profile filter: exclusion list of IP addresses or subnets from a file (supports mixed IPv4/IPv6)
@@ -655,7 +656,7 @@ MULTI-STRATEGY:
  --hostlist-auto-debug=<logfile>                        ; auto-list debug log
 
 LUA PACKET PASS MODE:
- --payload=type[,type]                                  ; in-profile filter: payload filter for subsequent instances within the profile. A list of payloads is available in the program's help text.
+ --payload=type[,type]                                  ; in-profile filter: payload filter for subsequent instances within the profile
  --out-range=[(n|a|d|s|p)<int>](-|<)[(n|a|d|s|p)<int>]  ; in-profile filter: conntrack counter range for subsequent instances within the profile - outgoing direction
  --in-range=[(n|a|d|s|p)<int>](-|<)[(n|a|d|s|p)<int>]   ; in-profile filter: conntrack counter range for subsequent instances within the profile - incoming direction
 
@@ -702,6 +703,30 @@ LOGICAL NETWORK FILTER:
  --nlm-filter=net1[,net2,net3,...]      ; list of Network List Manager networks; interception is enabled only when connected to these, otherwise it is disabled.
  --nlm-list[=all]                       ; display a list of connected NLM networks. "all" shows all NLM networks.
 ```
+
+## Protocol detection
+
+nfqws2 signatures the payload types of individual packets or groups of packets.
+All packets without data have payload empty, undetected - unknown.
+The flow protocol is assigned after receiving the first known payload and remains with the flow for the rest of its existence.
+In this case, subsequent payloads can have both a known type and an unknown one.
+In payload and flow protocol filters special values are available - "all" and "known". "all" means any, "known" - not "empty" and not "unknown".
+
+Table of recognizable payload types and flow protocols
+
+| flow protocol   | L4  | payloads |
+| :-------------- | :-- | :------- |
+| http            | tcp | http_req<br>http_reply |
+| tls             | tcp | tls_client_hello<br>tls_server_hello |
+| xmpp            | tcp | xmpp_stream<br>xmpp_starttls<br>xmpp_proceed<br>xmpp_features |
+| quic            | udp | quic_initial |
+| wireguarв       | udp | wireguard_initiation<br>wireguard_response<br>wireguard_cookie<br>wireguard_keepalive |
+| dht             | udp | dht |
+| discord         | udp | discord_ip_discovery |
+| stun            | udp | stun |
+| dns             | udp | dns_query dns_response |
+| mtproto         | udp | mtproto_initial |
+| dtls            | udp | dtls_client_hello<br>dtls_server_hello |
 
 ## Using multiple profiles
 
@@ -958,7 +983,7 @@ Direct file operations from Lua code are not recommended unless absolutely neces
 
 These come in three types: `--payload`, `--in-range`, and `--out-range`. Filter values remain active from the moment they are specified until the next override.
 
-- `--payload=type1[,type2][,type2]...` accepts a comma-separated list of known payloads, "all", or "known". The list of known payloads is available in the `nfqws2` help text. The default is `--payload=all`.
+- `--payload=type1[,type2][,type2]...` accepts a comma-separated list of known [payloads](#protocol-detection), "all", or "known". The default is `--payload=all`.
 - `--(in-range|out-range)=[(n|a|d|s|p)<int>](-|<)[(n|a|d|s|p)<int>]` sets conntrack counter ranges for inbound and outbound directions. The default is `--in-range=x`, `--out-range=a`.
 
 Ranges are specified in the following formats: `mX-mY`, `mX<mY`, `-mY`, `<mY`, `mX-`, where `m` is the counter mode, `X` is the lower bound, and `Y` is the upper bound. Modes `x` and `a` are specified as a single letter without a range or counter value. The `-` sign indicates an inclusive upper bound, while `<` indicates an exclusive one.
@@ -1416,12 +1441,12 @@ The same applies to optional `track` fields. Test your code with `--ctrack-disab
 | Field          | Type   | Description                                                     | Note                                             |
 | :------------- | :----- | :-------------------------------------------------------------- | :----------------------------------------------- |
 | incoming_ttl   | number | TTL/HL of the first incoming packet in the stream               | May be absent if not determined                  |
-| l7proto        | string | Stream protocol. A list of possible values is available in the nfqws2 help text | Always present; defaults to "unknown"            |
+| l7proto        | string | [flow protocol](#protocol-detection)                            | Always present; defaults to "unknown"            |
 | hostname       | string | Hostname, determined through L6/L7 protocol analysis            | Appears only after identification               |
 | hostname_is_ip | bool   | Whether the hostname is an IP address                           | Only present if a hostname exists                |
 | lua_state      | table  | A table for storing state associated with the stream            | Always present; passed with every packet         |
 | lua_in_cutoff  | bool   | Lua cutoff for the incoming direction                           | Read-only                                        |
-| lua_out_cutoff | bool   | Lua cutoff for the outgoing direction                          | Read-only                                        |
+| lua_out_cutoff | bool   | Lua cutoff for the outgoing direction                           | Read-only                                        |
 | t_start        | number | Unix time of the first packet in the stream                     | Includes a high-precision fractional part        |
 | pos            | table  | Counters for various directions                                 | Contains the tables: client, server, direct, and reverse |
 
@@ -3153,7 +3178,7 @@ function payload_match_filter(l7payload, l7payload_filter, def)
 function payload_check(desync, def)
 ```
 
-These functions operate on a string representing a comma-separated list of payloads. A list of known payload types can be found in the `nfqws2` help text. All empty packets have the payload `empty`, and unknown ones are `unknown`. Special values include `all` and `known`. `all` means any payload; `known` means anything that is not `unknown` or `empty`. A `~` prefix at the beginning denotes logical inversion (non-match).
+These functions operate on a string representing a comma-separated list of [payloads](#protocol-detection). All empty packets have the payload `empty`, and unknown ones are `unknown`. Special values include `all` and `known`. `all` means any payload; `known` means anything that is not `unknown` or `empty`. A `~` prefix at the beginning denotes logical inversion (non-match).
 
 - `payload_match_filter` checks if `l7payload` matches the `l7payload_filter` list, or `def` if `l7payload_filter` is `nil`. If both are `nil`, the list defaults to "known".
 - `payload_check` calls `payload_match_filter(desync.l7payload, desync.arg.payload, def)`.
@@ -3297,7 +3322,7 @@ Direction filter. In most functions using a direction filter, the default value 
 
 ### standard payload
 
-The payload filter accepts a list of payload types. A list of known payload types can be retrieved from the `nfqws2` help text. All empty packets are assigned the `empty` payload type, while unrecognized ones are labeled `unknown`. Special values include `all` and `known`: `all` matches any payload, while `known` matches anything that is neither `unknown` nor `empty`.
+The payload filter accepts a list of [payload types](#protocol-detection). All empty packets are assigned the `empty` payload type, while unrecognized ones are labeled `unknown`. Special values include `all` and `known`: `all` matches any payload, while `known` matches anything that is neither `unknown` nor `empty`.
 
 **standard payload**
 
