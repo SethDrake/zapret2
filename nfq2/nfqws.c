@@ -372,6 +372,7 @@ static int nfq_main(void)
 	{
 		while ((rd = recv(fd, buf, sizeof(buf), 0)) >= 0)
 		{
+			if (bQuit) goto quit;
 			ReloadCheck();
 			lua_do_gc();
 #ifdef HAS_FILTER_SSID
@@ -389,11 +390,7 @@ static int nfq_main(void)
 		}
 		if (errno==EINTR)
 		{
-			if (bQuit)
-			{
-				DLOG_CONDUP("quit requested\n");
-				goto exok;
-			}
+			if (bQuit) goto quit;
 			continue;
 		}
 		e = errno;
@@ -417,6 +414,9 @@ err:
 	if (Fpid) fclose(Fpid);
 	res=1;
 	goto ex;
+quit:
+	DLOG_CONDUP("quit requested\n");
+	goto exok;
 }
 
 #elif defined(BSD)
@@ -516,18 +516,14 @@ static int dvt_main(void)
 		FD_ZERO(&fdset);
 		for (i = 0; i < fdct; i++) FD_SET(fd[i], &fdset);
 		r = select(fdmax, &fdset, NULL, NULL, NULL);
+		if (bQuit)
+		{
+			DLOG_CONDUP("quit requested\n");
+			goto exitok;
+		}
 		if (r == -1)
 		{
-			if (errno == EINTR)
-			{
-				if (bQuit)
-				{
-					DLOG_CONDUP("quit requested\n");
-					goto exitok;
-				}
-				// a signal received
-				continue;
-			}
+			if (errno == EINTR) continue;
 			DLOG_PERROR("select");
 			goto exiterr;
 		}
@@ -656,7 +652,7 @@ static int win_main()
 			{
 				if (bQuit)
 				{
-					DLOG("QUIT requested\n");
+					DLOG("quit requested\n");
 					goto ex;
 				}
 				usleep(500000);
@@ -701,7 +697,7 @@ static int win_main()
 				}
 				else if (errno == EINTR)
 				{
-					DLOG("QUIT requested\n");
+					DLOG("quit requested\n");
 					goto ex;
 				}
 				DLOG_ERR("windivert: recv failed. errno %d\n", errno);
