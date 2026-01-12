@@ -74,7 +74,7 @@ bool l7_payload_match(t_l7payload l7payload, uint64_t filter_l7p)
 }
 bool l7_payload_str_list(uint64_t l7p, char *buf, size_t size)
 {
-	char *p;
+	char *p, *e;
 	const char *pstr;
 	size_t lstr;
 	t_l7payload pl;
@@ -86,17 +86,17 @@ bool l7_payload_str_list(uint64_t l7p, char *buf, size_t size)
 		memcpy(buf,"all",4);
 		return true;
 	}
-	for(pl=0, p=buf, *buf=0 ; pl<L7P_LAST ; pl++)
+	for(pl=0, p=buf, e=p+size, *buf=0 ; pl<L7P_LAST ; pl++)
 	{
 		if (l7p & (1<<pl))
 		{
 			pstr = l7payload_str(pl);
 			lstr = strlen(pstr);
-			if (size < ((p!=buf) + lstr + 1)) return false;
+			if ((p + (p!=buf) + lstr + 1) > e) return false;
 			if (p!=buf) *p++=','; // not first
 			memcpy(p,pstr,lstr);
 			p[lstr]=0;
-			p+=lstr;
+			p += lstr;
 		}
 	}
 	return true;
@@ -1140,7 +1140,7 @@ bool QUICIsLongHeader(const uint8_t *data, size_t len)
 uint32_t QUICExtractVersion(const uint8_t *data, size_t len)
 {
 	// long header, fixed bit, type=initial
-	return QUICIsLongHeader(data, len) ? ntohl(*(uint32_t*)(data + 1)) : 0;
+	return QUICIsLongHeader(data, len) ? pntoh32(data + 1) : 0;
 }
 bool QUICExtractDCID(const uint8_t *data, size_t len, quic_cid_t *cid)
 {
@@ -1177,6 +1177,7 @@ bool QUICDecryptInitial(const uint8_t *data, size_t data_len, uint8_t *clean, si
 	if ((pn_offset + tvb_get_size(data[pn_offset])) >= data_len) return false;
 	pn_offset += tvb_get_varint(data + pn_offset, &token_len);
 	pn_offset += token_len;
+	if (pn_offset >= data_len) return false;
 	if ((pn_offset + tvb_get_size(data[pn_offset])) >= data_len) return false;
 	pn_offset += tvb_get_varint(data + pn_offset, &payload_len);
 	if (payload_len<20 || (pn_offset + payload_len)>data_len) return false;
@@ -1434,7 +1435,7 @@ bool IsMTProto(const uint8_t *data, size_t len)
 		return !memcmp(decrypt+56,"\xEF\xEF\xEF\xEF",4);
 */
 		// this way requires only one AES instead of 4
-		uint8_t decrypt[16], iv[16];
+		uint8_t decrypt[16] __attribute__((aligned)), iv[16];
 		aes_context ctx;
 
 		memcpy(iv, data+40, 16);

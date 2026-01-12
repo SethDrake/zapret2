@@ -94,12 +94,10 @@ extern const char *http_methods[9];
 const char *HttpMethod(const uint8_t *data, size_t len);
 bool IsHttp(const uint8_t *data, size_t len);
 bool HttpFindHost(uint8_t **pHost,uint8_t *buf,size_t bs);
-bool HttpFindHostConst(const uint8_t **pHost,const uint8_t *buf,size_t bs);
 // header must be passed like this : "\nHost:"
 bool HttpExtractHeader(const uint8_t *data, size_t len, const char *header, char *buf, size_t len_buf);
 bool HttpExtractHost(const uint8_t *data, size_t len, char *host, size_t len_host);
 bool IsHttpReply(const uint8_t *data, size_t len);
-const char *HttpFind2ndLevelDomain(const char *host);
 // must be pre-checked by IsHttpReply
 int HttpReplyCode(const uint8_t *data, size_t len);
 // must be pre-checked by IsHttpReply

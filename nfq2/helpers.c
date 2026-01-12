@@ -599,8 +599,8 @@ bool packet_range_parse(const char *s, struct packet_range *range)
 
 void fill_random_bytes(uint8_t *p,size_t sz)
 {
-	size_t k,sz16 = sz>>1;
-	for(k=0;k<sz16;k++) ((uint16_t*)p)[k]=(uint16_t)random();
+	size_t k;
+	for (k=0 ; (k+1)<sz ; k+=2) phton16(p+k, (uint16_t)random());
 	if (sz & 1) p[sz-1]=(uint8_t)random();
 }
 void fill_random_az(uint8_t *p,size_t sz)
