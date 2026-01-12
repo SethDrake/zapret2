@@ -1430,7 +1430,7 @@ bool IsMTProto(const uint8_t *data, size_t len)
 	if (len>=64)
 	{
 /*
-		uint8_t decrypt[64];
+		uint8_t decrypt[64] __attribute__((aligned));
 		aes_ctr_crypt(data+8, 32, data+40, data, 64, decrypt);
 		return !memcmp(decrypt+56,"\xEF\xEF\xEF\xEF",4);
 */

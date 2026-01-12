@@ -191,7 +191,7 @@ static int nfq_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg, struct nfq_da
 	char ifout[IFNAMSIZ], ifin[IFNAMSIZ];
 	size_t modlen;
 	uint32_t mark;
-	uint8_t mod[RECONSTRUCT_MAX_SIZE];
+	uint8_t mod[RECONSTRUCT_MAX_SIZE] __attribute__((aligned(16)));
 
 	ph = nfq_get_msg_packet_hdr(nfa);
 	id = ph ? ntohl(ph->packet_id) : 0;
@@ -321,7 +321,7 @@ static int nfq_main(void)
 	int res, fd, e;
 	ssize_t rd;
 	FILE *Fpid = NULL;
-	uint8_t buf[RECONSTRUCT_MAX_SIZE] __attribute__((aligned));
+	uint8_t buf[RECONSTRUCT_MAX_SIZE] __attribute__((aligned(16)));
 
 	if (*params.pidfile && !(Fpid = fopen(params.pidfile, "w")))
 	{
@@ -635,7 +635,7 @@ static int win_main()
 	WINDIVERT_ADDRESS wa;
 	char ifname[IFNAMSIZ];
 	int res=0;
-	uint8_t packet[RECONSTRUCT_MAX_SIZE];
+	uint8_t packet[RECONSTRUCT_MAX_SIZE] __attribute__((aligned(16)));
 
 	if (params.daemon) daemonize();
 

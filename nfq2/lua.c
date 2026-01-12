@@ -2212,7 +2212,7 @@ static int luacall_reconstruct_dissect(lua_State *L)
 	LUA_STACK_GUARD_ENTER(L)
 
 	size_t l;
-	uint8_t buf[RECONSTRUCT_MAX_SIZE];
+	uint8_t buf[RECONSTRUCT_MAX_SIZE] __attribute__((aligned(16)));
 	l = sizeof(buf);
 
 	bool ip6_preserve_next, badsum;
@@ -2471,7 +2471,7 @@ static int luacall_rawsend_dissect(lua_State *L)
 	uint32_t fwmark;
 	sockaddr_in46 sa;
 	bool b, badsum, ip6_preserve_next;
-	uint8_t buf[RECONSTRUCT_MAX_SIZE];
+	uint8_t buf[RECONSTRUCT_MAX_SIZE] __attribute__((aligned(16)));
 	len = sizeof(buf);
 
 	luaL_checktype(L,1,LUA_TTABLE);
