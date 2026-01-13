@@ -425,17 +425,6 @@ static bool send_delayed(t_ctrack *ctrack)
 	return true;
 }
 
-static bool rawpacket_queue_csum_fix(struct rawpacket_tailhead *q, const struct dissect *dis, const t_ctrack_positions *tpos, const struct sockaddr_storage* dst, uint32_t fwmark, uint32_t desync_fwmark, const char *ifin, const char *ifout)
-{
-	// this breaks const pointer to l4 header
-	if (dis->tcp)
-		verdict_tcp_csum_fix(VERDICT_PASS, (struct tcphdr *)dis->tcp, dis->transport_len, dis->ip, dis->ip6);
-	else if (dis->udp)
-		verdict_udp_csum_fix(VERDICT_PASS, (struct udphdr *)dis->udp, dis->transport_len, dis->ip, dis->ip6);
-	return rawpacket_queue(q, dst, fwmark, desync_fwmark, ifin, ifout, dis->data_pkt, dis->len_pkt, dis->len_payload, tpos);
-}
-
-
 static bool reasm_start(t_ctrack *ctrack, t_reassemble *reasm, uint8_t proto, uint32_t seq, size_t sz, size_t szMax, const uint8_t *data_payload, size_t len_payload)
 {
 	ReasmClear(reasm);
@@ -1335,7 +1324,7 @@ static uint8_t dpi_desync_tcp_packet_play(
 
 				if (!ReasmIsEmpty(&ctrack->reasm_client))
 				{
-					if (rawpacket_queue_csum_fix(&ctrack->delayed, dis, &ctrack->pos, &dst, fwmark, desync_fwmark, ifin, ifout))
+					if (rawpacket_queue(&ctrack->delayed, &dst, fwmark, desync_fwmark, ifin, ifout, dis->data_pkt, dis->len_pkt, dis->len_payload, &ctrack->pos))
 					{
 						DLOG("DELAY desync until reasm is complete (#%u)\n", rawpacket_queue_count(&ctrack->delayed));
 					}
@@ -1793,7 +1782,7 @@ static uint8_t dpi_desync_udp_packet_play(
 								}
 								if (!ReasmIsEmpty(&ctrack->reasm_client))
 								{
-									if (rawpacket_queue_csum_fix(&ctrack->delayed, dis, &ctrack->pos, &dst, fwmark, desync_fwmark, ifin, ifout))
+									if (rawpacket_queue(&ctrack->delayed, &dst, fwmark, desync_fwmark, ifin, ifout, dis->data_pkt, dis->len_pkt, dis->len_payload, &ctrack->pos))
 									{
 										DLOG("DELAY desync until reasm is complete (#%u)\n", rawpacket_queue_count(&ctrack->delayed));
 									}
@@ -1833,7 +1822,7 @@ static uint8_t dpi_desync_udp_packet_play(
 									if (!reasm_client_start(ctrack, IPPROTO_UDP, UDP_MAX_REASM, UDP_MAX_REASM, clean, clean_len))
 										goto pass_reasm_cancel;
 								}
-								if (rawpacket_queue_csum_fix(&ctrack->delayed, dis, &ctrack->pos, &dst, fwmark, desync_fwmark, ifin, ifout))
+								if (rawpacket_queue(&ctrack->delayed, &dst, fwmark, desync_fwmark, ifin, ifout, dis->data_pkt, dis->len_pkt, dis->len_payload, &ctrack->pos))
 								{
 									DLOG("DELAY desync until reasm is complete (#%u)\n", rawpacket_queue_count(&ctrack->delayed));
 								}
@@ -2034,16 +2023,16 @@ static uint8_t dpi_desync_packet_play(
 			if (dis.tcp)
 			{
 				verdict = dpi_desync_tcp_packet_play(replay_piece, replay_piece_count, reasm_offset, fwmark, ifin, ifout, tpos, &dis, mod_pkt, len_mod_pkt);
-				// we fix csum before pushing to replay queue
-				if (!replay_piece_count) verdict_tcp_csum_fix(verdict, (struct tcphdr *)dis.tcp, dis.transport_len, dis.ip, dis.ip6);
+				// fix csum if unmodified and if OS can pass wrong csum to queue
+				verdict_tcp_csum_fix(verdict, (struct tcphdr *)dis.tcp, dis.transport_len, dis.ip, dis.ip6);
 			}
 			break;
 		case IPPROTO_UDP:
 			if (dis.udp)
 			{
 				verdict = dpi_desync_udp_packet_play(replay_piece, replay_piece_count, reasm_offset, fwmark, ifin, ifout, tpos, &dis, mod_pkt, len_mod_pkt);
-				// we fix csum before pushing to replay queue
-				if (!replay_piece_count) verdict_udp_csum_fix(verdict, (struct udphdr *)dis.udp, dis.transport_len, dis.ip, dis.ip6);
+				// fix csum if unmodified and if OS can pass wrong csum to queue
+				verdict_udp_csum_fix(verdict, (struct udphdr *)dis.udp, dis.transport_len, dis.ip, dis.ip6);
 			}
 			break;
 		}
