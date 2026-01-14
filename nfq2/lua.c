@@ -1296,6 +1296,7 @@ void lua_pushf_ip6exthdr(lua_State *L, const struct ip6_hdr *ip6, size_t len)
 	// assume ipv6 packet structure was already checked for validity
 	size_t hdrlen;
 	uint8_t HeaderType, *data;
+	uint16_t plen;
 	lua_Integer idx = 1;
 
 	lua_pushliteral(L, "exthdr");
@@ -1305,6 +1306,8 @@ void lua_pushf_ip6exthdr(lua_State *L, const struct ip6_hdr *ip6, size_t len)
 		HeaderType = ip6->ip6_ctlun.ip6_un1.ip6_un1_nxt;
 		data=(uint8_t*)(ip6+1);
 		len-=sizeof(struct ip6_hdr);
+		plen = ntohs(ip6->ip6_ctlun.ip6_un1.ip6_un1_plen);
+		if (plen < len) len = plen;
 		while (len > 0) // need at least one byte for NextHeader field
 		{
 			switch (HeaderType)

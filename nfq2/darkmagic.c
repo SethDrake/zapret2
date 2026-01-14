@@ -341,18 +341,25 @@ bool proto_check_ipv6(const uint8_t *data, size_t len)
 {
 	return len >= sizeof(struct ip6_hdr) && (data[0] & 0xF0) == 0x60;
 }
+bool proto_check_ipv6_payload(const uint8_t *data, size_t len)
+{
+	return len >= (ntohs(((struct ip6_hdr*)data)->ip6_ctlun.ip6_un1.ip6_un1_plen) + sizeof(struct ip6_hdr));
+}
 // move to transport protocol
 // proto_type = 0 => error
 void proto_skip_ipv6(const uint8_t **data, size_t *len, uint8_t *proto_type, const uint8_t **last_header_type)
 {
 	size_t hdrlen;
 	uint8_t HeaderType;
+	uint16_t plen;
 
 	if (proto_type) *proto_type = 0; // put error in advance
 
 	HeaderType = (*data)[6]; // NextHeader field
 	if (last_header_type) *last_header_type = (*data)+6;
+	plen = ntohs(((struct ip6_hdr*)data)->ip6_ctlun.ip6_un1.ip6_un1_plen);
 	*data += sizeof(struct ip6_hdr); *len -= sizeof(struct ip6_hdr); // skip ipv6 base header
+	if (plen < *len) *len = plen;
 	while (*len) // need at least one byte for NextHeader field
 	{
 		switch (HeaderType)
@@ -391,60 +398,18 @@ void proto_skip_ipv6(const uint8_t **data, size_t *len, uint8_t *proto_type, con
 	// we have garbage
 }
 
-bool proto_set_last_ip6_proto(struct ip6_hdr *ip6, size_t len, uint8_t proto)
-{
-	size_t hdrlen;
-	uint8_t HeaderType, *pproto, *data;
-
-	if (len<sizeof(struct ip6_hdr)) return false;
-
-	pproto = &ip6->ip6_ctlun.ip6_un1.ip6_un1_nxt;
-	data = (uint8_t*)(ip6+1);
-	len -= sizeof(struct ip6_hdr);
-	while (len) // need at least one byte for NextHeader field
-	{
-		switch (*pproto)
-		{
-		case IPPROTO_HOPOPTS:
-		case IPPROTO_ROUTING:
-		case IPPROTO_DSTOPTS:
-		case IPPROTO_MH: // mobility header
-		case IPPROTO_HIP: // Host Identity Protocol Version v2
-		case IPPROTO_SHIM6:
-			if (len < 2) return false; // error
-			hdrlen = 8 + (data[1] << 3);
-			break;
-		case IPPROTO_FRAGMENT: // fragment. length fixed to 8, hdrlen field defined as reserved
-			hdrlen = 8;
-			break;
-		case IPPROTO_AH:
-			// special case. length in ah header is in 32-bit words minus 2
-			if (len < 2) return false; // error
-			hdrlen = 8 + (data[1] << 2);
-			break;
-		default:
-			// we found some meaningful payload. it can be tcp, udp, icmp or some another exotic shit
-			*pproto = proto;
-			return true;
-		}
-		if (len < hdrlen) return false; // error
-		pproto = data;
-		len -= hdrlen; data += hdrlen;
-	}
-	*pproto = proto;
-	return true;
-}
-
 uint8_t *proto_find_ip6_exthdr(struct ip6_hdr *ip6, size_t len, uint8_t proto)
 {
 	size_t hdrlen;
 	uint8_t HeaderType, last_proto, *data;
+	uint16_t plen;
 
 	if (len<sizeof(struct ip6_hdr)) return false;
-
+	plen = ntohs(ip6->ip6_ctlun.ip6_un1.ip6_un1_plen);
 	last_proto = ip6->ip6_ctlun.ip6_un1.ip6_un1_nxt;
 	data = (uint8_t*)(ip6+1);
 	len -= sizeof(struct ip6_hdr);
+	if (plen < len) len = plen;
 	while (len) // need at least one byte for NextHeader field
 	{
 		if (last_proto==proto) return data; // found
@@ -497,7 +462,7 @@ void proto_dissect_l3l4(const uint8_t *data, size_t len, struct dissect *dis)
 		proto_skip_ipv4(&data, &len);
 		dis->len_l3 = data-p;
 	}
-	else if (proto_check_ipv6(data, len))
+	else if (proto_check_ipv6(data, len) && proto_check_ipv6_payload(data, len))
 	{
 		dis->ip6 = (const struct ip6_hdr *) data;
 		p = data;
