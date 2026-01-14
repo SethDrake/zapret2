@@ -174,7 +174,7 @@ static int luacall_bitget(lua_State *L)
 	uint64_t what = (uint64_t)iwhat;
 	lua_Integer from = luaL_checkinteger(L,2);
 	lua_Integer to = luaL_checkinteger(L,3);
-	if (from>to || from>47 || to>47)
+	if (from<0 || to<0 || from>to || from>47 || to>47)
 		luaL_error(L, "bit range invalid");
 
 	what = (what >> from) & ~((lua_Integer)-1 << (to-from+1));
@@ -194,7 +194,7 @@ static int luacall_bitset(lua_State *L)
 	int64_t iset = (int64_t)luaL_checklint(L,4);
 	if (iset>0xFFFFFFFFFFFF || iset<-(int64_t)0xFFFFFFFFFFFF) luaL_error(L, "out of range");
 	uint64_t set = (uint64_t)iset;
-	if (from>to || from>47 || to>47)
+	if (from<0 || to<0 || from>to || from>47 || to>47)
 		luaL_error(L, "bit range invalid");
 
 	uint64_t mask = ~((uint64_t)-1 << (to-from+1));
