@@ -1,6 +1,5 @@
 . "$TESTDIR/def.inc"
 
-
 pktws_hostfake_vary_()
 {
 	local ok_any=0 testf=$1 domain="$2" fooling="$3" pre="$4" post="$5" disorder
@@ -58,7 +57,7 @@ pktws_check_hostfake()
 			pktws_hostfake_vary $testf $domain "ip${IPVV}_autottl=-$ttl,3-20" "$pre" "$f" && [ "$SCANLEVEL" != force ] && break
 		done
 	done
-	[ $ok = 0 -a "$SCANLEVEL" != force ] && eval need_hostfake=1
+	[ $ok = 0 -a "$SCANLEVEL" != force ] && need_hostfakesplit=1
 	[ $ok = 1 ]
 }
 

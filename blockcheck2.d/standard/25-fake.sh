@@ -55,8 +55,8 @@ pktws_check_http()
 	done
 
 	[ $ok = 0 -a "$SCANLEVEL" != force ] && need_fake=1
-	[ $ok = 1 ] && okany=1
-	[ $okany = 1 ]
+	[ $ok = 1 ] && ok_any=1
+	[ $ok_any = 1 ]
 }
 
 pktws_fake_https_vary_()
@@ -123,8 +123,8 @@ pktws_check_https_tls()
 	done
 
 	[ $ok = 0 -a "$SCANLEVEL" != force ] && need_fake=1
-	[ $ok = 1 ] && okany=1
-	[ $okany = 1 ]
+	[ $ok = 1 ] && ok_any=1
+	[ $ok_any = 1 ]
 }
 
 pktws_check_https_tls12()

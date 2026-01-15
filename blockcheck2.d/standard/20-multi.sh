@@ -1,18 +1,22 @@
+. "$TESTDIR/def.inc"
+
 pktws_simple_split_tests()
 {
 	# $1 - test function
 	# $2 - domain/uri
 	# $3 - splits
 	# $4 - PRE args for nfqws2
-	local pos ok ok_any pre="$4"
-	local splitf splitfs="multisplit $MULTIDISORDER"
+	local pos ok ok_any pre="$4" func
+	local splitf splitfs="multisplit multidisorder"
 
 	ok_any=0
 	for splitf in $splitfs; do
+		func=$splitf
+		[ "$func" = multidisorder ] && func=$MULTIDISORDER
 		eval need_$splitf=0
 		ok=0
 		for pos in $3; do
-			pktws_curl_test_update $1 $2 $pre $PAYLOAD --lua-desync=$splitf:pos=$pos && ok=1
+			pktws_curl_test_update $1 $2 $pre $PAYLOAD --lua-desync=$func:pos=$pos && ok=1
 		done
 		[ "$ok" = 1 -a "$SCANLEVEL" != force ] || eval need_$splitf=1
 		[ "$ok" = 1 ] && ok_any=1

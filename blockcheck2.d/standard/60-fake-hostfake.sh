@@ -69,7 +69,7 @@ pktws_check_http()
 	local FAKE="$FAKE_HTTP"
 
 	if [ -n "$FAKE_HTTP" ]; then
-		fake=bfake
+		fake=fake_http
 	else
 		fake=fake_default_http
 	fi
@@ -87,7 +87,7 @@ pktws_check_https_tls()
 	local FAKE="$FAKE_HTTPS"
 
 	if [ -n "$FAKE_HTTPS" ]; then
-		fake=bfake
+		fake=fake_tls
 	else
 		fake=fake_default_tls
 	fi
