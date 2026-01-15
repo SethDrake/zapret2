@@ -1643,7 +1643,7 @@ static bool lua_reconstruct_ip6exthdr(lua_State *L, int idx, struct ip6_hdr *ip6
 
 				lua_getfield(L,-1, "data");
 				if (lua_type(L,-1)!=LUA_TSTRING) goto err3;
-				p=(uint8_t*)lua_tolstring(L,-1,&l);
+				if (!(p=(uint8_t*)lua_tolstring(L,-1,&l))) l=0;
 				if (!l || (l+2)>left || ((type==IPPROTO_AH) ? (l<6 || ((l+2) & 3)) : ((l+2) & 7))) goto err3;
 				memcpy(data+2,p,l);
 				l+=2;
@@ -1702,14 +1702,14 @@ bool lua_reconstruct_ip6hdr(lua_State *L, int idx, struct ip6_hdr *ip6, size_t *
 	lua_getfield(L,idx,"ip6_src");
 	if (lua_type(L,-1)!=LUA_TSTRING) goto err;
 	p = lua_tolstring(L,-1,&l);
-	if (l!=sizeof(struct in6_addr)) goto err;
+	if (!p || l!=sizeof(struct in6_addr)) goto err;
 	ip6->ip6_src = *(struct in6_addr*)p;
 	lua_pop(L, 1);
 	
 	lua_getfield(L,idx,"ip6_dst");
 	if (lua_type(L,-1)!=LUA_TSTRING) goto err;
 	p = lua_tolstring(L,-1,&l);
-	if (l!=sizeof(struct in6_addr)) goto err;
+	if (!p || l!=sizeof(struct in6_addr)) goto err;
 	ip6->ip6_dst = *(struct in6_addr*)p;
 	lua_pop(L, 1);
 	return lua_reconstruct_ip6exthdr(L, idx, ip6, len, last_proto, preserve_next);
@@ -1780,14 +1780,14 @@ bool lua_reconstruct_iphdr(lua_State *L, int idx, struct ip *ip, size_t *len)
 	lua_getfield(L,idx,"ip_src");
 	if (lua_type(L,-1)!=LUA_TSTRING) goto err;
 	p = lua_tolstring(L,-1,&l);
-	if (l!=sizeof(struct in_addr)) goto err;
+	if (!p || l!=sizeof(struct in_addr)) goto err;
 	ip->ip_src = *(struct in_addr*)p;
 	lua_pop(L, 1);
 
 	lua_getfield(L,idx,"ip_dst");
 	if (lua_type(L,-1)!=LUA_TSTRING) goto err;
 	p = lua_tolstring(L,-1,&l);
-	if (l!=sizeof(struct in_addr)) goto err;
+	if (!p || l!=sizeof(struct in_addr)) goto err;
 	ip->ip_dst = *(struct in_addr*)p;
 	lua_pop(L, 1);
 
@@ -2078,7 +2078,7 @@ bool lua_reconstruct_dissect(lua_State *L, int idx, uint8_t *buf, size_t *len, b
 		if (!lua_reconstruct_iphdr(L,-1, ip, &l))
 		{
 			DLOG_ERR("reconstruct_dissect: bad ip\n");
-			goto err;
+			goto err1;
 		}
 		ip4_fix_checksum(ip);
 	}
@@ -2086,12 +2086,12 @@ bool lua_reconstruct_dissect(lua_State *L, int idx, uint8_t *buf, size_t *len, b
 	{
 		lua_pop(L, 1);
 		lua_getfield(L,idx,"ip6");
-		if (lua_type(L,-1)!=LUA_TTABLE) goto err;
+		if (lua_type(L,-1)!=LUA_TTABLE) goto err1;
 		ip6 = (struct ip6_hdr*)data;
 		if (!lua_reconstruct_ip6hdr(L,-1, ip6, &l, lua_ip6_l4proto_from_dissect(L,idx), ip6_preserve_next))
 		{
 			DLOG_ERR("reconstruct_dissect: bad ip6\n");
-			goto err;
+			goto err1;
 		}
 	}
 	l3=l;
@@ -2106,7 +2106,7 @@ bool lua_reconstruct_dissect(lua_State *L, int idx, uint8_t *buf, size_t *len, b
 		if (!lua_reconstruct_tcphdr(L, -1, tcp, &l))
 		{
 			DLOG_ERR("reconstruct_dissect: bad tcp\n");
-			goto err;
+			goto err1;
 		}
 	}
 	else
@@ -2114,12 +2114,12 @@ bool lua_reconstruct_dissect(lua_State *L, int idx, uint8_t *buf, size_t *len, b
 		lua_pop(L, 1);
 		lua_getfield(L,idx,"udp");
 		l = sizeof(struct udphdr);
-		if (lua_type(L,-1)!=LUA_TTABLE || left<l) goto err;
+		if (lua_type(L,-1)!=LUA_TTABLE || left<l) goto err1;
 		udp = (struct udphdr*)data;
 		if (!lua_reconstruct_udphdr(L, -1, udp))
 		{
 			DLOG_ERR("reconstruct_dissect: bad udp\n");
-			goto err;
+			goto err1;
 		}
 	}
 	data+=l; left-=l;
@@ -2127,12 +2127,14 @@ bool lua_reconstruct_dissect(lua_State *L, int idx, uint8_t *buf, size_t *len, b
 
 	lua_getfield(L,idx,"payload");
 	p = lua_tolstring(L,-1,&lpayload);
-	if (p && lpayload)
+	if (p)
 	{
-		if (left<lpayload) goto err;
+		if (left<lpayload) goto err0;
 		memcpy(data,p,lpayload);
 		data+=lpayload; left-=lpayload;
 	}
+	else
+		lpayload = 0;
 	lua_pop(L, 1);
 
 	l = data-buf;
@@ -2159,12 +2161,12 @@ bool lua_reconstruct_dissect(lua_State *L, int idx, uint8_t *buf, size_t *len, b
 			if (iplen<l3 || iplen>l)
 			{
 				DLOG_ERR("ipv4 frag : invalid ip_len\n");
-				goto err;
+				goto err0;
 			}
 			if (frag_start>l)
 			{
 				DLOG_ERR("ipv4 frag : fragment offset is outside of the packet\n");
-				goto err;
+				goto err0;
 			}
 			if (off) memmove(buf+l3,buf+l3+off,iplen-l3);
 			l = iplen; // shrink packet to iplen
@@ -2187,13 +2189,13 @@ bool lua_reconstruct_dissect(lua_State *L, int idx, uint8_t *buf, size_t *len, b
 			if (size_unfragmentable > plen)
 			{
 				DLOG_ERR("ipv6 frag : invalid ip6_plen\n");
-				goto err;
+				goto err0;
 			}
 			size_t size_fragmentable = plen - size_unfragmentable;
 			if ((endfrag + off + size_fragmentable) > data)
 			{
 				DLOG_ERR("ipv6 frag : fragmentable part is outside of the packet\n");
-				goto err;
+				goto err0;
 			}
 			if (off) memmove(endfrag, endfrag + off, size_fragmentable);
 			l = sizeof(struct ip6_hdr) + plen;
@@ -2205,8 +2207,9 @@ bool lua_reconstruct_dissect(lua_State *L, int idx, uint8_t *buf, size_t *len, b
 	*len = l;
 	LUA_STACK_GUARD_LEAVE(L, 0)
 	return true;
-err:
+err1:
 	lua_pop(L, 1);
+err0:
 	LUA_STACK_GUARD_LEAVE(L, 0)
 	return false;
 }
