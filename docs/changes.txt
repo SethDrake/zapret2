@@ -188,3 +188,5 @@ v0.8.1
 * blockcheck2: 17-oob.sh
 * nfqws2: set desync.tcp_mss to minimum of both ends or default if at least one is unknown
 * zapret-lib: tcp_nop_del
+* blockcheck2: tcp_nop_del in SYN packets with md5 in openbsd
+* nfqws2: detect http proxy protocol as http
