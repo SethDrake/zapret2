@@ -347,17 +347,18 @@ bool proto_check_ipv6_payload(const uint8_t *data, size_t len)
 }
 // move to transport protocol
 // proto_type = 0 => error
-void proto_skip_ipv6(const uint8_t **data, size_t *len, uint8_t *proto_type, const uint8_t **last_header_type)
+void proto_skip_ipv6(const uint8_t **data, size_t *len, uint8_t *proto_type)
 {
 	size_t hdrlen;
 	uint8_t HeaderType;
 	uint16_t plen;
+	struct ip6_hdr *ip6 = (struct ip6_hdr*)*data;
 
 	if (proto_type) *proto_type = 0; // put error in advance
 
-	HeaderType = (*data)[6]; // NextHeader field
-	if (last_header_type) *last_header_type = (*data)+6;
-	plen = ntohs(((struct ip6_hdr*)data)->ip6_ctlun.ip6_un1.ip6_un1_plen);
+	HeaderType = ip6->ip6_nxt;
+	if (proto_type) *proto_type = HeaderType;
+	plen = ntohs(ip6->ip6_ctlun.ip6_un1.ip6_un1_plen);
 	*data += sizeof(struct ip6_hdr); *len -= sizeof(struct ip6_hdr); // skip ipv6 base header
 	if (plen < *len) *len = plen;
 	while (*len) // need at least one byte for NextHeader field
@@ -390,7 +391,6 @@ void proto_skip_ipv6(const uint8_t **data, size_t *len, uint8_t *proto_type, con
 		}
 		if (*len < hdrlen) return; // error
 		HeaderType = **data;
-		if (last_header_type) *last_header_type = *data;
 		// advance to the next header location
 		*len -= hdrlen;
 		*data += hdrlen;
@@ -466,7 +466,7 @@ void proto_dissect_l3l4(const uint8_t *data, size_t len, struct dissect *dis)
 	{
 		dis->ip6 = (const struct ip6_hdr *) data;
 		p = data;
-		proto_skip_ipv6(&data, &len, &dis->proto, NULL);
+		proto_skip_ipv6(&data, &len, &dis->proto);
 		dis->len_l3 = data-p;
 	}
 	else
