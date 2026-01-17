@@ -1440,11 +1440,11 @@ void lua_pushf_ctrack(lua_State *L, const t_ctrack *ctrack, const t_ctrack_posit
 {
 	LUA_STACK_GUARD_ENTER(L)
 
-	if (!tpos) tpos = &ctrack->pos;
-
 	lua_pushliteral(L, "track");
 	if (ctrack)
 	{
+		if (!tpos) tpos = &ctrack->pos;
+
 		lua_createtable(L, 0, 9);
 
 		if (ctrack->incoming_ttl)

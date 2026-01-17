@@ -18,9 +18,14 @@ function luaexec(ctx, desync)
 	if not desync.arg.code then
 		error("luaexec: no 'code' parameter")
 	end
-	local fname = desync.func_instance.."_luaexec_code"
+	local fname = desync.func_instance.."_code"
 	if not _G[fname] then
-		_G[fname] = load(desync.arg.code, fname)
+		local err
+		_G[fname], err = load(desync.arg.code, fname)
+		if not _G[fname] then
+			error(err)
+			return
+		end
 	end
 	-- allow dynamic code to access desync
 	_G.desync = desync
