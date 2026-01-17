@@ -1067,6 +1067,15 @@ function oob(ctx, desync)
 		instance_cutoff_shim(ctx, desync)
 		return
 	end
+	local key = desync.func_instance.."_syn"
+	if not desync.track.lua_state[key] then
+		if bitand(desync.dis.tcp.th_flags, TH_SYN+TH_ACK)~=TH_SYN then
+			DLOG("oob: must be applied since the very beginning of the tcp connection - SYN packet")
+			instance_cutoff_shim(ctx, desync)
+			return
+		end
+		desync.track.lua_state[key] = true
+	end
 	if desync.outgoing then
 		-- direct pos - outgoing
 		local pos = pos_get(desync, 's', false)

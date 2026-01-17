@@ -193,3 +193,4 @@ v0.8.1
 0.8.6
 
 * winws2, blockcheck2: allow multiple instances in windows, linux, freebsd (not openbsd)
+* zapret-antidpi: oob instance cutoff if called not from the very beginning of tcp
