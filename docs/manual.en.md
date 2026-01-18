@@ -5193,5 +5193,5 @@ Another problem is lack of cygwin for non-x86 platforms. However, win11 has x64 
 There is no need to replace WinDivert.dll - only WinDivert64.sys needs to be replaced. It's verified and confirmed working.
 
 There is no x64 emulation on win10 arm64, but there is x86 32-bit emulation.
-Therefore, theorecically you can use the win32 variant and put the WinDivert64.sys driver for arm64 to the same dir.
+Therefore, theoretically you can use the win32 variant and put the WinDivert64.sys driver for arm64 to the same dir.
 This hasn't been verified.
