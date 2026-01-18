@@ -1308,7 +1308,6 @@ static uint8_t dpi_desync_tcp_packet_play(
 
 			if (bReqFull) TLSDebug(rdata_payload, rlen_payload);
 
-			bHaveHost = TLSHelloExtractHost(rdata_payload, rlen_payload, host, sizeof(host), true);
 			if (ctrack && !l7_payload_match(l7payload, params.reasm_payload_disable))
 			{
 				// do not reasm retransmissions
@@ -1338,6 +1337,7 @@ static uint8_t dpi_desync_tcp_packet_play(
 					return VERDICT_DROP;
 				}
 			}
+			bHaveHost = TLSHelloExtractHost(rdata_payload, rlen_payload, host, sizeof(host), true);
 		}
 	}
 
