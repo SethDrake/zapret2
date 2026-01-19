@@ -1065,7 +1065,7 @@ struct play_state
 	const struct in_addr *sdip4;
 	const struct in6_addr *sdip6;
 	uint16_t sdport;
-	uint8_t verdict, proto;
+	uint8_t verdict;
 	char host[256];
 	t_l7proto l7proto;
 	t_l7payload l7payload;
