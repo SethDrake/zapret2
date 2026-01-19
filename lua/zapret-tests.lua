@@ -594,17 +594,16 @@ function test_csum()
 	print( dis1.tcp.th_sum==dis2.tcp.th_sum and "TCP+IP6 CSUM OK" or "TCP+IP6 CSUM FAILED" )
 	test_assert(dis1.tcp.th_sum==dis2.tcp.th_sum)
 
-
-	ip.ip_p = IPPROTO_UDP
-	ip4b = reconstruct_iphdr(ip)
-	ip6.ip6_plen = packet_len({ip6=ip6,udp=udp,payload=payload}) - IP6_BASE_LEN
-	ip6b = reconstruct_ip6hdr(ip6, {ip6_last_proto=IPPROTO_UDP})
-
 	local udp = {
 		uh_sport = math.random(0,0xFFFF),
 		uh_dport = math.random(0,0xFFFF),
 		uh_ulen = UDP_BASE_LEN + #payload
 	}
+
+	ip.ip_p = IPPROTO_UDP
+	ip4b = reconstruct_iphdr(ip)
+	ip6.ip6_plen = packet_len({ip6=ip6,udp=udp,payload=payload}) - IP6_BASE_LEN
+	ip6b = reconstruct_ip6hdr(ip6, {ip6_last_proto=IPPROTO_UDP})
 
 	udpb = reconstruct_udphdr(udp)
 	raw =	bu16(udp.uh_sport) ..

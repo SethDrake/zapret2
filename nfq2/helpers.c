@@ -127,28 +127,6 @@ bool load_file(const char *filename, off_t offset, void *buffer, size_t *buffer_
 	return true;
 }
 
-bool load_file_nonempty(const char *filename, off_t offset, void *buffer, size_t *buffer_size)
-{
-	bool b = load_file(filename, offset, buffer, buffer_size);
-	return b && *buffer_size;
-}
-bool save_file(const char *filename, const void *buffer, size_t buffer_size)
-{
-	FILE *F;
-
-	F = fopen(filename, "wb");
-	if (!F) return false;
-
-	fwrite(buffer, 1, buffer_size, F);
-	if (ferror(F))
-	{
-		fclose(F);
-		return false;
-	}
-
-	fclose(F);
-	return true;
-}
 bool append_to_list_file(const char *filename, const char *s)
 {
 	FILE *F = fopen(filename,"at");
@@ -260,50 +238,6 @@ void print_sockaddr(const struct sockaddr *sa)
 
 	ntop46_port(sa, ip_port, sizeof(ip_port));
 	printf("%s", ip_port);
-}
-
-bool pton4_port(const char *s, struct sockaddr_in *sa)
-{
-	char ip[16],*p;
-	size_t l;
-	unsigned int u;
-
-	p = strchr(s,':');
-	if (!p) return false;
-	l = p-s;
-	if (l<7 || l>15) return false;
-	memcpy(ip,s,l);
-	ip[l]=0;
-	p++;
-
-	sa->sin_family = AF_INET;
-	if (inet_pton(AF_INET,ip,&sa->sin_addr)!=1 || sscanf(p,"%u",&u)!=1 || !u || u>0xFFFF) return false;
-	sa->sin_port = htons((uint16_t)u);
-	
-	return true;
-}
-bool pton6_port(const char *s, struct sockaddr_in6 *sa)
-{
-	char ip[40],*p;
-	size_t l;
-	unsigned int u;
-
-	if (*s++!='[') return false;
-	p = strchr(s,']');
-	if (!p || p[1]!=':') return false;
-	l = p-s;
-	if (l<2 || l>39) return false;
-	p+=2;
-	memcpy(ip,s,l);
-	ip[l]=0;
-
-	sa->sin6_family = AF_INET6;
-	if (inet_pton(AF_INET6,ip,&sa->sin6_addr)!=1 || sscanf(p,"%u",&u)!=1 || !u || u>0xFFFF) return false;
-	sa->sin6_port = htons((uint16_t)u);
-	sa->sin6_flowinfo = 0;
-	sa->sin6_scope_id = 0;
-	
-	return true;
 }
 
 uint16_t saport(const struct sockaddr *sa)

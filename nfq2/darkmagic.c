@@ -329,12 +329,16 @@ void proto_skip_tcp(const uint8_t **data, size_t *len)
 }
 bool proto_check_udp(const uint8_t *data, size_t len)
 {
-	return len >= sizeof(struct udphdr) && len>=(data[4]<<8 | data[5]);
+	return len >= sizeof(struct udphdr);
+}
+bool proto_check_udp_payload(const uint8_t *data, size_t len)
+{
+	return len >= ntohs(((struct udphdr*)data)->uh_ulen);
 }
 void proto_skip_udp(const uint8_t **data, size_t *len)
 {
-	*data += 8;
-	*len -= 8;
+	*data += sizeof(struct udphdr);
+	*len -= sizeof(struct udphdr);
 }
 
 bool proto_check_ipv6(const uint8_t *data, size_t len)
@@ -487,7 +491,7 @@ void proto_dissect_l3l4(const uint8_t *data, size_t len, struct dissect *dis)
 		dis->len_payload = len;
 
 	}
-	else if (dis->proto==IPPROTO_UDP && proto_check_udp(data, len))
+	else if (dis->proto==IPPROTO_UDP && proto_check_udp(data, len) && proto_check_udp_payload(data, len))
 	{
 		dis->udp = (const struct udphdr *) data;
 		dis->transport_len = len;

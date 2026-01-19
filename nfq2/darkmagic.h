@@ -141,6 +141,7 @@ uint8_t *proto_find_ip6_exthdr(struct ip6_hdr *ip6, size_t len, uint8_t proto);
 bool proto_check_tcp(const uint8_t *data, size_t len);
 void proto_skip_tcp(const uint8_t **data, size_t *len);
 bool proto_check_udp(const uint8_t *data, size_t len);
+bool proto_check_udp_payload(const uint8_t *data, size_t len);
 void proto_skip_udp(const uint8_t **data, size_t *len);
 struct dissect
 {

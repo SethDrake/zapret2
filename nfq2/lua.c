@@ -2053,7 +2053,7 @@ uint8_t lua_ip6_l4proto_from_dissect(lua_State *L, int idx)
 bool lua_reconstruct_dissect(lua_State *L, int idx, uint8_t *buf, size_t *len, bool badsum, bool ip6_preserve_next)
 {
 	uint8_t *data = buf;
-	size_t l,lpayload,l3,left = *len;
+	size_t sz,l,lpayload,l3,left = *len;
 	struct ip *ip=NULL;
 	struct ip6_hdr *ip6=NULL;
 	struct tcphdr *tcp=NULL;
@@ -2123,6 +2123,11 @@ bool lua_reconstruct_dissect(lua_State *L, int idx, uint8_t *buf, size_t *len, b
 	p = lua_tolstring(L,-1,&lpayload);
 	if (p)
 	{
+		if (lpayload>0xFFFF)
+		{
+			DLOG_ERR("reconstruct_dissect: invalid payload length\n");
+			goto err;
+		}
 		if (left<lpayload) goto err;
 		memcpy(data,p,lpayload);
 		data+=lpayload; left-=lpayload;
@@ -2134,7 +2139,13 @@ bool lua_reconstruct_dissect(lua_State *L, int idx, uint8_t *buf, size_t *len, b
 	l = data-buf;
 	if (udp)
 	{
-		udp->uh_ulen = htons((uint16_t)(lpayload+sizeof(struct udphdr)));
+		sz = (uint16_t)(lpayload+sizeof(struct udphdr));
+		if (sz>0xFFFF)
+		{
+			DLOG_ERR("reconstruct_dissect: invalid payload length\n");
+			goto err;
+		}
+		udp->uh_ulen = htons((uint16_t)sz);
 		udp_fix_checksum(udp,l-l3,ip,ip6);
 		if (badsum) udp->uh_sum ^= 1 + (random() % 0xFFFF);
 	}
@@ -2290,6 +2301,8 @@ static int luacall_csum_tcp_fix(lua_State *L)
 
 	size_t l_pl;
 	const uint8_t *b_pl = (const uint8_t*)luaL_checklstring(L, 3, &l_pl);
+	if (l_pl>0xFFFF)
+		luaL_error(L, "invalid payload length");
 
 	size_t l_tpl = l_tcp + l_pl;
 	uint8_t *tpl = malloc(l_tpl);
@@ -2326,11 +2339,13 @@ static int luacall_csum_udp_fix(lua_State *L)
 
 	size_t l_udp;
 	const uint8_t *b_udp = (const uint8_t*)luaL_checklstring(L, 2, &l_udp);
-	if (!proto_check_udp(b_udp, ntohs(((struct udphdr*)b_udp)->uh_ulen)))
+	if (!proto_check_udp(b_udp, l_udp))
 		luaL_error(L, "invalid udp header");
 
 	size_t l_pl;
 	const uint8_t *b_pl = (const uint8_t*)luaL_checklstring(L, 3, &l_pl);
+	if (l_pl>0xFFFF)
+		luaL_error(L, "invalid payload length");
 
 	size_t l_tpl = l_udp + l_pl;
 	uint8_t *tpl = malloc(l_tpl);

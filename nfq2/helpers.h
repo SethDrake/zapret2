@@ -33,8 +33,6 @@ char *strncasestr(const char *s,const char *find, size_t slen);
 bool is_identifier(const char *p);
 
 bool load_file(const char *filename, off_t offset, void *buffer, size_t *buffer_size);
-bool load_file_nonempty(const char *filename, off_t offset, void *buffer, size_t *buffer_size);
-bool save_file(const char *filename, const void *buffer, size_t buffer_size);
 bool append_to_list_file(const char *filename, const char *s);
 
 void expand_bits(void *target, const void *source, unsigned int source_bitlen, unsigned int target_bytelen);
@@ -45,8 +43,6 @@ void print_sockaddr(const struct sockaddr *sa);
 void ntopa46(const struct in_addr *ip, const struct in6_addr *ip6,char *str, size_t len);
 void ntop46(const struct sockaddr *sa, char *str, size_t len);
 void ntop46_port(const struct sockaddr *sa, char *str, size_t len);
-bool pton4_port(const char *s, struct sockaddr_in *sa);
-bool pton6_port(const char *s, struct sockaddr_in6 *sa);
 
 uint16_t saport(const struct sockaddr *sa);
 bool sa_has_addr(const struct sockaddr *sa);
