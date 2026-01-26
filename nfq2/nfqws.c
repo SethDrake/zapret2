@@ -498,7 +498,7 @@ static int dvt_main(void)
 		memset(&bp6, 0, sizeof(bp6));
 		bp6.sin6_family = AF_INET6;
 		bp6.sin6_port = htons(params.port);
-	
+
 		DLOG_CONDUP("creating divert6 socket\n");
 		fd[1] = socket_divert(AF_INET6);
 		if (fd[1] == -1) {

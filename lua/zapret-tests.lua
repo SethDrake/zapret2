@@ -13,12 +13,14 @@ end
 
 
 function test_all(...)
-	test_run({test_crypto, test_bin, test_gzip, test_ipstr, test_dissect, test_csum, test_resolve, test_rawsend},...)
+	test_run({
+		test_crypto, test_bin, test_gzip, test_ipstr, test_dissect, test_csum, test_resolve,
+		test_get_source_ip, test_ifaddrs, test_rawsend},...)
 end
 
 
 function test_crypto(...)
-	test_run({test_random, test_aes, test_aes_gcm, test_aes_ctr, test_hkdf, test_hash},...)
+	test_run({test_random, test_bop, test_aes, test_aes_gcm, test_aes_ctr, test_hkdf, test_hash},...)
 end
 
 function test_random()
@@ -28,6 +30,30 @@ function test_random()
 		print("random: "..string2hex(rnd))
 		test_assert(not rnds[rnd]) -- should not be repeats
 		rnds[rnd] = true
+	end
+end
+
+function test_bop()
+	for n,test in ipairs(
+		{
+			{ fb = bxor, fbit = bitxor, nb = "bxor", nbit="bitxor" },
+			{ fb = bor, fbit = bitor, nb = "bor", nbit="bitor" },
+			{ fb = band, fbit = bitand, nb = "band", nbit="bitand" }
+		}) do
+		for k=1,5 do
+			local r = {}
+			for i=1,6 do r[i] = math.random(0,0xFFFFFFFFFFFF) end
+			local v1 = bu48(r[1])..bu48(r[2])..bu48(r[3])
+			local v2 = bu48(r[4])..bu48(r[5])..bu48(r[6])
+			print("x1     : "..string2hex(v1))
+			print("x2     : "..string2hex(v2))
+			local v3 = test.fb(v1,v2)
+			local v4 = bu48(test.fbit(r[1],r[4]))..bu48(test.fbit(r[2],r[5]))..bu48(test.fbit(r[3],r[6]))
+			print(test.nb.."   : "..string2hex(v3))
+			print(test.nbit.." : "..string2hex(v4))
+			print("result : "..(v3==v4 and "OK" or "FAIL"))
+			test_assert(v3==v4)
+		end
 	end
 end
 
@@ -455,10 +481,53 @@ function test_dissect()
 		}
 		raw1 = reconstruct_dissect(ip_tcp)
 		print("IP+TCP : "..string2hex(raw1))
-		dis1 = dissect(raw1);
+		dis1 = dissect(raw1)
 		raw2 = reconstruct_dissect(dis1)
-		dis2 = dissect(raw2);
+		dis2 = dissect(raw2)
 		print("IP+TCP2: "..string2hex(raw2))
+		print( raw1==raw2 and "DISSECT OK" or "DISSECT FAILED" )
+		test_assert(raw1==raw2)
+
+		print("IP standalone")
+		raw1 = reconstruct_iphdr(ip_tcp.ip)
+		print("IP1: "..string2hex(raw1))
+		dis1 = dissect_iphdr(raw1)
+		raw2 = reconstruct_iphdr(dis1)
+		print("IP2: "..string2hex(raw2))
+		print( raw1==raw2 and "DISSECT OK" or "DISSECT FAILED" )
+		test_assert(raw1==raw2)
+
+		print("TCP standalone")
+		raw1 = reconstruct_tcphdr(ip_tcp.tcp)
+		print("TCP1: "..string2hex(raw1))
+		dis1 = dissect_tcphdr(raw1)
+		raw2 = reconstruct_tcphdr(dis1)
+		print("TCP2: "..string2hex(raw2))
+		print( raw1==raw2 and "DISSECT OK" or "DISSECT FAILED" )
+		test_assert(raw1==raw2)
+
+		local ip_icmp = {
+			ip = {
+				ip_tos = math.random(0,255),
+				ip_id = math.random(0,0xFFFF),
+				ip_off = 0,
+				ip_ttl = math.random(0,255),
+				ip_p = IPPROTO_ICMP,
+				ip_src = brandom(4),
+				ip_dst = brandom(4),
+				options = brandom(math.random(0,40))
+			},
+			icmp = {
+				icmp_type = ICMP_DEST_UNREACH, icmp_code=ICMP_UNREACH_PORT,
+				icmp_data = math.random(1,0xFFFFFFFF)
+			}
+		}
+		print("ICMP standalone")
+		raw1 = reconstruct_icmphdr(ip_icmp.icmp)
+		print("ICMP1: "..string2hex(raw1))
+		dis1 = dissect_icmphdr(raw1)
+		raw2 = reconstruct_icmphdr(dis1)
+		print("ICMP2: "..string2hex(raw2))
 		print( raw1==raw2 and "DISSECT OK" or "DISSECT FAILED" )
 		test_assert(raw1==raw2)
 
@@ -482,10 +551,29 @@ function test_dissect()
 	
 		raw1 = reconstruct_dissect(ip6_udp)
 		print("IP6+UDP : "..string2hex(raw1))
-		dis1 = dissect(raw1);
+		dis1 = dissect(raw1)
 		raw2 = reconstruct_dissect(dis1)
-		dis2 = dissect(raw2);
+		dis2 = dissect(raw2)
 		print("IP6+UDP2: "..string2hex(raw2))
+		print( raw1==raw2 and "DISSECT OK" or "DISSECT FAILED" )
+		test_assert(raw1==raw2)
+
+		print("UDP standalone")
+		raw1 = reconstruct_udphdr(ip6_udp.udp)
+		print("UDP1: "..string2hex(raw1))
+		dis1 = dissect_udphdr(raw1)
+		raw2 = reconstruct_udphdr(dis1)
+		print("UDP2: "..string2hex(raw2))
+		print( raw1==raw2 and "DISSECT OK" or "DISSECT FAILED" )
+		test_assert(raw1==raw2)
+
+		print("IP6 standalone")
+		ip6_udp.ip6.ip6_plen = nil;
+		raw1 = reconstruct_ip6hdr(ip6_udp.ip6,{ip6_last_proto=IPPROTO_UDP})
+		print("IP1: "..string2hex(raw1))
+		dis1 = dissect_ip6hdr(raw1)
+		raw2 = reconstruct_ip6hdr(dis1,{ip6_last_proto=IPPROTO_UDP})
+		print("IP2: "..string2hex(raw2))
 		print( raw1==raw2 and "DISSECT OK" or "DISSECT FAILED" )
 		test_assert(raw1==raw2)
 	end
@@ -493,7 +581,7 @@ end
 
 function test_csum()
 	local payload = brandom(math.random(10,20))
-	local ip4b, ip6b, raw, tcpb, udpb, dis1, dis2
+	local ip4b, ip6b, raw, tcpb, udpb, icmpb, dis1, dis2
 	local ip = {
 		ip_tos = math.random(0,255),
 		ip_id = math.random(0,0xFFFF),
@@ -626,6 +714,37 @@ function test_csum()
 	dis2 = dissect(ip6b..udpb..payload)
 	print( dis1.udp.uh_sum==dis2.udp.uh_sum and "UDP+IP6 CSUM OK" or "UDP+IP6 CSUM FAILED" )
 	test_assert(dis1.udp.uh_sum==dis2.udp.uh_sum)
+
+	local icmp = {
+		icmp_type = math.random(0,0xFF), icmp_code=math.random(0,0xFF),
+		icmp_data = math.random(0,0xFFFFFFFF)
+	}
+	ip.ip_p = IPPROTO_ICMP
+	ip4b = reconstruct_iphdr(ip)
+	ip6.ip6_plen = packet_len({ip6=ip6,icmp=icmp,payload=payload}) - IP6_BASE_LEN
+	ip6b = reconstruct_ip6hdr(ip6, {ip6_last_proto=IPPROTO_ICMPV6})
+
+	icmpb = reconstruct_icmphdr(icmp)
+	raw =	bu8(icmp.icmp_type) ..
+		bu8(icmp.icmp_code) ..
+		bu16(0) ..
+		bu32(icmp.icmp_data)
+	print( raw==icmpb and "ICMP RECONSTRUCT OK" or "ICMP RECONSTRUCT FAILED" )
+	test_assert(raw==icmpb)
+
+	raw = reconstruct_dissect({ip=ip, icmp=icmp, payload=payload})
+	dis1 = dissect(raw)
+	icmpb = csum_icmp_fix(ip4b,icmpb,payload)
+	dis2 = dissect(ip4b..icmpb..payload)
+	print( dis1.icmp.icmp_cksum==dis2.icmp.icmp_cksum and "ICMP+IP4 CSUM OK" or "ICMP+IP4 CSUM FAILED" )
+	test_assert(dis1.icmp.icmp_cksum==dis2.icmp.icmp_cksum)
+
+	raw = reconstruct_dissect({ip6=ip6, icmp=icmp, payload=payload})
+	dis1 = dissect(raw)
+	icmpb = csum_icmp_fix(ip6b,icmpb,payload)
+	dis2 = dissect(ip6b..icmpb..payload)
+	print( dis1.icmp.icmp_cksum==dis2.icmp.icmp_cksum and "ICMP+IP6 CSUM OK" or "ICMP+IP6 CSUM FAILED" )
+	test_assert(dis1.icmp.icmp_cksum==dis2.icmp.icmp_cksum)
 end
 
 function test_resolve()
@@ -677,6 +796,26 @@ function test_resolve()
 	print("resolve_pos http non-existent : "..m.." : "..tostring(pos))
 end
 
+function test_get_source_ip(opts)
+	for k,d in ipairs({
+		'127.0.0.1','192.168.1.1','10.1.1.1','1.1.1.1','255.255.255.255',
+		'::1','fc81::4','2a06::1','2001:470::1','2002:0101:0101::1','::1.1.1.1'})
+	do
+		local src = get_source_ip(pton(d))
+		print((src and ntop(src) or "?").." => "..d)
+	end
+end
+function test_ifaddrs(opts)
+	local ifa = get_ifaddrs()
+	test_assert(ifa)
+	for ifname,ifinfo in pairs(ifa) do
+		print(ifname.." index="..tostring(ifinfo.index).." mtu="..tostring(ifinfo.mtu))
+		for i,addr in ipairs(ifinfo.addr) do
+			print(" "..ntop(addr.addr)..(addr.netmask and " mask "..tostring(ntop(addr.netmask)) or ""))
+		end
+	end
+end
+
 function test_rawsend(opts)
 	local ifout = (opts and opts.ifout) and opts.ifout
 	local function rawsend_fail_warning()
@@ -718,14 +857,15 @@ function test_rawsend(opts)
 	local payload = brandom(math.random(100,1200))
 	local b
 
+	local target = pton("192.168.1.2")
 	ip = {
 		ip_tos = 0,
 		ip_id = math.random(0,0xFFFF),
 		ip_off = 0,
 		ip_ttl = 1,
 		ip_p = IPPROTO_UDP,
-		ip_src = pton("192.168.1.1"),
-		ip_dst = pton("192.168.1.2")
+		ip_src = get_source_ip(target),
+		ip_dst = target
 	}
 	udp = {
 		uh_sport = math.random(0,0xFFFF),
@@ -749,11 +889,12 @@ function test_rawsend(opts)
 	print("send ipv4 udp using pure rawsend without dissect")
 	test_assert(rawsend_print(raw, {repeats=5}))
 
+	target = pton("fdce:3124:164a:5318::2")
 	ip6 = {
 		ip6_flow = 0x60000000,
 		ip6_hlim = 1,
-		ip6_src = pton("fdce:3124:164a:5318::1"),
-		ip6_dst = pton("fdce:3124:164a:5318::2")
+		ip6_src = get_source_ip(target),
+		ip6_dst = target
 	}
 	dis = {ip6 = ip6, udp = udp, payload = payload}
 	print("send ipv6 udp")
@@ -784,8 +925,8 @@ function test_rawsend(opts)
 		test_assert(rawsend_dissect_print(d))
 	end
 
-	table.insert(ip6.exthdr, { type = IPPROTO_DSTOPTS, data = "\x00\x00\x00\x00\x00\x00" })
-	table.insert(ip6.exthdr, { type = IPPROTO_DSTOPTS, data = "\x00\x00\x00\x00\x00\x00" })
+	insert_ip6_exthdr(ip6, nil, IPPROTO_DSTOPTS, "\x00\x00\x00\x00\x00\x00")
+	insert_ip6_exthdr(ip6, nil, IPPROTO_DSTOPTS, "\x00\x00\x00\x00\x00\x00")
 	ip6.ip6_flow = 0x60001234;
 	ddis = ipfrag2(dis, {ipfrag_pos_udp = 80})
 	for k,d in ipairs(ddis) do
@@ -793,13 +934,30 @@ function test_rawsend(opts)
 		test_assert(rawsend_dissect_print(d, {fwmark = 0x50EA}))
 	end
 
-	fix_ip6_next(ip6) -- required to forge next proto in the second fragment
+	fix_ip_proto(dis) -- ip6_preserve_next requires next fields in ip6.exthdr
 	ip6.ip6_flow = 0x6000AE38;
-	ddis = ipfrag2(dis, {ipfrag_pos_udp = 80, ipfrag_next = IPPROTO_TCP})
+	ddis = ipfrag2(dis, {ipfrag_pos_udp = 72, ipfrag_next = IPPROTO_TCP})
 	for k,d in ipairs(ddis) do
 		print("send ipv6 udp frag "..k.." with hopbyhop, destopt ext headers in unfragmentable part and another destopt ext header in fragmentable part. forge next proto in fragment header of the second fragment to TCP")
 		-- reconstruct dissect using next proto fields in the dissect. do not auto fix next proto chain.
 		-- by default reconstruct fixes next proto chain
 		test_assert(rawsend_dissect_print(d, {fwmark = 0x409A, repeats=2}, {ip6_preserve_next = true}))
 	end
+
+	local icmp = {
+		icmp_type = ICMP_ECHO, icmp_code=0,
+		icmp_data = u32(bu16(math.random(1,0xFFFF))..bu16(1))
+	}
+	ip.ip_p = IPPROTO_ICMP
+	payload=brandom_az09(math.random(10,1100))
+	dis = {ip = ip, icmp = icmp, payload = payload}
+	print("send ipv4 icmp")
+	test_assert(rawsend_dissect_print(dis, {fwmark = 0xD133, repeats=3}))
+
+	ip6.exthdr={{ type = IPPROTO_HOPOPTS, data = "\x00\x00\x00\x00\x00\x00" }}
+	ip6.ip6_flow=0x60009E3B;
+	icmp.icmp_type = ICMP6_ECHO_REQUEST;
+	dis = {ip6 = ip6, icmp = icmp, payload = payload}
+	print("send ipv6 icmp")
+	test_assert(rawsend_dissect_print(dis, {fwmark = 0x8E10, repeats=3}))
 end

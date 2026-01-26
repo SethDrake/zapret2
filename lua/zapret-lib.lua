@@ -1,4 +1,4 @@
-NFQWS2_COMPAT_VER_REQUIRED=4
+NFQWS2_COMPAT_VER_REQUIRED=5
 
 if NFQWS2_COMPAT_VER~=NFQWS2_COMPAT_VER_REQUIRED then
 	error("Incompatible NFQWS2_COMPAT_VER. Use pktws and lua scripts from the same release !")
@@ -629,7 +629,42 @@ function parse_tcp_flags(s)
 		end
 	end
 	return f
-end	
+end
+
+-- get ip protocol from l3 headers
+function ip_proto_l3(dis)
+	if dis.ip then
+		return dis.ip.ip_p
+	elseif dis.ip6 then
+		return #dis.ip6.exthdr==0 and dis.ip6.ip6_nxt or dis.ip6.exthdr[#dis.ip6.exthdr].next
+	end
+end
+-- get ip protocol from l4 headers
+function ip_proto_l4(dis)
+	if dis.tcp then
+		return IPPROTO_TCP
+	elseif dis.udp then
+		return IPPROTO_UDP
+	elseif dis.ip then
+		return dis.icmp and IPPROTO_ICMP or nil
+	elseif dis.ip6 then
+		return dis.icmp and IPPROTO_ICMPV6 or nil
+	end
+end
+function ip_proto(dis)
+	return ip_proto_l4(dis) or ip_proto_l3(dis)
+end
+-- discover ip protocol and fix "next" fields
+function fix_ip_proto(dis, proto)
+	local pr = proto or ip_proto(dis)
+	if pr then
+		if dis.ip then
+			dis.ip.ip_p = pr
+		elseif dis.ip6 then
+			fix_ip6_next(dis.ip6, pr)
+		end
+	end
+end
 
 -- find first tcp options of specified kind in dissect.tcp.options
 function find_tcp_option(options, kind)
@@ -980,7 +1015,7 @@ function l3_extra_len(dis, ip6_exthdr_last_idx)
 		end
 	elseif dis.ip6 and dis.ip6.exthdr then
 		local ct
-		if ip6_exthdr_last_idx and ip6_exthdr_last_idx<=#dis.ip6.exthdr then
+		if ip6_exthdr_last_idx and ip6_exthdr_last_idx>=0 and ip6_exthdr_last_idx<=#dis.ip6.exthdr then
 			ct = ip6_exthdr_last_idx
 		else
 			ct = #dis.ip6.exthdr
@@ -1007,6 +1042,8 @@ function l4_base_len(dis)
 		return TCP_BASE_LEN
 	elseif dis.udp then
 		return UDP_BASE_LEN
+	elseif dis.icmp then
+		return ICMP_BASE_LEN
 	else
 		return 0
 	end
@@ -1253,6 +1290,31 @@ function host_or_ip(desync)
 	return host_ip(desync)
 end
 
+-- rate limited update of global ifaddrs
+function update_ifaddrs()
+	if ifaddrs then
+		local now = os.time()
+		if not ifaddrs_last then ifaddrs_last = now end
+		if ifaddrs_last~=now then
+			ifaddrs = get_ifaddrs()
+			ifaddrs_last = now
+		end
+	else
+		ifaddrs = get_ifaddrs()
+	end
+end
+-- search ifaddrs for ip and return interface name or nil if not found
+-- do not call get_ifaddrs too often to avoid overhead
+function ip2ifname(ip)
+	update_ifaddrs()
+	if not ifaddrs then return nil end
+	for ifname,ifinfo in pairs(ifaddrs) do
+		if array_field_search(ifinfo.addr, "addr", ip) then
+			return ifname
+		end
+	end
+end
+
 function is_absolute_path(path)
 	if string.sub(path,1,1)=='/' then return true end
 	local un = uname()
@@ -1298,8 +1360,10 @@ end
 
 -- standard fragmentation to 2 ip fragments
 -- function returns 2 dissects with fragments
--- option : ipfrag_pos_udp - udp frag position. ipv4 : starting from L4 header. ipb6: starting from fragmentable part. must be multiple of 8. default 8
--- option : ipfrag_pos_tcp - tcp frag position. ipv4 : starting from L4 header. ipb6: starting from fragmentable part. must be multiple of 8. default 32
+-- option : ipfrag_pos_udp - udp frag position. ipv4 : starting from L4 header. ipv6: starting from fragmentable part. must be multiple of 8. default 8
+-- option : ipfrag_pos_tcp - tcp frag position. ipv4 : starting from L4 header. ipv6: starting from fragmentable part. must be multiple of 8. default 32
+-- option : ipfrag_pos_icmp - icmp frag position. ipv4 : starting from L4 header. ipv6: starting from fragmentable part. must be multiple of 8. default 8
+-- option : ipfrag_pos - icmp frag position for other L4. ipv4 : starting from L4 header. ipv6: starting from fragmentable part. must be multiple of 8. default 32
 -- option : ipfrag_next - next protocol field in ipv6 fragment extenstion header of the second fragment. same as first by default.
 function ipfrag2(dis, ipfrag_options)
 	local function frag_idx(exthdr)
@@ -1333,6 +1397,8 @@ function ipfrag2(dis, ipfrag_options)
 		pos = ipfrag_options.ipfrag_pos_tcp or 32
 	elseif dis.udp then
 		pos = ipfrag_options.ipfrag_pos_udp or 8
+	elseif dis.icmp then
+		pos = ipfrag_options.ipfrag_pos_icmp or 8
 	else
 		pos = ipfrag_options.ipfrag_pos or 32
 	end
@@ -1349,18 +1415,19 @@ function ipfrag2(dis, ipfrag_options)
 	if (pos+l3)>0xFFFF then
 		error("ipfrag2: too high frag offset")
 	end
-	local plen = l3 + l4_len(dis) + #dis.payload
-	if (pos+l3)>=plen then
-		DLOG("ipfrag2: ip frag pos exceeds packet length. ipfrag cancelled.")
-		return nil
-	end
 
+	local plen = l3 + l4_len(dis) + #dis.payload
 	if dis.ip then
 		-- ipv4 frag is done by both lua and C part
 		-- lua code must correctly set ip_len, IP_MF and ip_off and provide full unfragmented payload
 		-- ip_len must be set to valid value as it would appear in the fragmented packet
 		-- ip_off must be set to fragment offset and IP_MF bit must be set if it's not the last fragment
 		-- C code constructs unfragmented packet then moves everything after ip header according to ip_off and ip_len
+
+		if (pos+l3)>=plen then
+			DLOG("ipfrag2: ip frag pos "..pos.." exceeds packet length. ipfrag cancelled.")
+			return nil
+		end
 
 		-- ip_id must not be zero or fragment will be dropped
 		local ip_id = dis.ip.ip_id==0 and math.random(1,0xFFFF) or dis.ip.ip_id
@@ -1382,7 +1449,15 @@ function ipfrag2(dis, ipfrag_options)
 		-- C code constructs unfragmented packet then moves fragmentable part as needed
 
 		local idxfrag = frag_idx(dis.ip6.exthdr)
-		local l3extra = l3_extra_len(dis, idxfrag-1) + 8 -- all ext headers before frag + 8 bytes for frag header
+		local l3extra = l3_extra_len(dis, idxfrag-1) -- all ext headers before frag
+
+		l3 = l3_base_len(dis) + l3extra
+		if (pos+l3)>=plen then
+			DLOG("ipfrag2: ip frag pos "..pos.." exceeds packet length. ipfrag cancelled.")
+			return nil
+		end
+
+		l3extra = l3extra + 8 -- + 8 bytes for frag header
 		local ident = math.random(1,0xFFFFFFFF)
 
 		dis1 = deepcopy(dis)
@@ -1398,7 +1473,6 @@ function ipfrag2(dis, ipfrag_options)
 		end
 		dis2.ip6.ip6_plen = plen - IP6_BASE_LEN + 8 - pos -- packet len without frag + 8 byte frag header - ipv6 base header
 	end
-
 	return {dis1,dis2}
 end
 

@@ -179,7 +179,7 @@ function standard_failure_detector(desync, crec)
 						DLOG("standard_failure_detector: not counting incoming RST s"..seq.." beyond s"..arg.inseq)
 					end
 				end
-			elseif not arg.no_http_redirect and desync.l7payload=="http_reply" and desync.track and desync.track.hostname then
+			elseif not arg.no_http_redirect and desync.l7payload=="http_reply" and desync.track.hostname then
 				local hdis = http_dissect_reply(desync.dis.payload)
 				if hdis and (hdis.code==302 or hdis.code==307) then
 					local idx_loc = array_field_search(hdis.headers, "header_low", "location")
@@ -403,7 +403,7 @@ function cond_payload_str(desync)
 	if not desync.arg.pattern then
 		error("cond_payload_str: missing 'pattern'")
 	end
-	return string.find(desync.dis.payload,desync.arg.pattern,1,true)
+	return desync.dis.payload and string.find(desync.dis.payload,desync.arg.pattern,1,true)
 end
 -- check iff function available. error if not
 function require_iff(desync, name)
@@ -458,13 +458,17 @@ end
 function repeater(ctx, desync)
 	local repeats = tonumber(desync.arg.repeats)
 	if not repeats then
-		error("repeat: missing 'repeats'")
+		error("repeater: missing 'repeats'")
 	end
 	local iff = desync.arg.iff or "cond_true"
 	if type(_G[iff])~="function" then
-		error(name..": invalid 'iff' function '"..iff.."'")
+		error("repeater: invalid 'iff' function '"..iff.."'")
 	end
 	orchestrate(ctx, desync)
+	if #desync.plan==0 then
+		DLOG("repeater: execution plan is empty - nothing to repeat")
+		return
+	end
 	local neg = desync.arg.neg
 	local stop = desync.arg.stop
 	local clear = desync.arg.clear

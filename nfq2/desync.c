@@ -232,7 +232,7 @@ static bool dp_match(
 		default:
 			if (!ipp_filters_match(&dp->ipf, l3proto)) return false;
 	}
-		
+
 	if (l3proto == IPPROTO_ICMP && !icmp_filters_match(&dp->icf, icmp_type, icmp_code))
 		// icmp filter does not match
 		return false;
