@@ -227,6 +227,7 @@ static bool dp_match(
 			if (!port_filters_match(&dp->pf_udp, port)) return false;
 			break;
 		case IPPROTO_ICMP:
+		case IPPROTO_ICMPV6:
 			if (!icmp_filters_match(&dp->icf, icmp_type, icmp_code)) return false;
 			break;
 		default:
@@ -821,7 +822,7 @@ static bool desync_get_result(uint8_t *verdict)
 			goto err;
 		}
 		lua_Integer lv = lua_tointeger(params.L, -1);
-		if (lv & ~VERDICT_MASK)
+		if (lv & ~VERDICT_MASK_VALID_LUA)
 		{
 			DLOG_ERR("desync function returned bad int result\n");
 			goto err;
@@ -835,6 +836,20 @@ static bool desync_get_result(uint8_t *verdict)
 err:
 	lua_pop(params.L, rescount);
 	return false;
+}
+static uint8_t verdict_aggregate(uint8_t v1,uint8_t v2)
+{
+	uint8_t verdict_action = v1 & VERDICT_MASK;
+	switch (v2 & VERDICT_MASK)
+	{
+		case VERDICT_MODIFY:
+			if (verdict_action == VERDICT_PASS) verdict_action = VERDICT_MODIFY;
+			break;
+		case VERDICT_DROP:
+			verdict_action = VERDICT_DROP;
+			break;
+	}
+	return v1 & ~VERDICT_MASK | verdict_action | v2 & VERDICT_PRESERVE_NEXT;
 }
 static uint8_t desync(
 	struct desync_profile *dp,
@@ -1031,14 +1046,8 @@ static uint8_t desync(
 							}
 							if (!desync_get_result(&verdict_func))
 								goto err;
-							switch (verdict_func & VERDICT_MASK)
-							{
-							case VERDICT_MODIFY:
-								if (verdict == VERDICT_PASS) verdict = VERDICT_MODIFY;
-								break;
-							case VERDICT_DROP:
-								verdict = VERDICT_DROP;
-							}
+
+							verdict = verdict_aggregate(verdict, verdict_func);
 						}
 						else
 							DLOG("* lua '%s' : payload_type '%s' does not satisfy filter\n", instance, l7payload_str(l7payload));
@@ -1057,7 +1066,7 @@ static uint8_t desync(
 			}
 		}
 
-		if (verdict == VERDICT_MODIFY)
+		if ((verdict & VERDICT_MASK)==VERDICT_MODIFY)
 		{
 			// use same memory buffer to reduce memory copying
 			// packet size cannot grow
@@ -1073,16 +1082,12 @@ static uint8_t desync(
 			}
 			else
 			{
-				b = lua_reconstruct_dissect(params.L, -1, mod_pkt, len_mod_pkt, false, false, IPPROTO_NONE, false);
+				b = lua_reconstruct_dissect(params.L, -1, mod_pkt, len_mod_pkt, false, false, IPPROTO_NONE, !!(verdict & VERDICT_PRESERVE_NEXT));
 				lua_pop(params.L, 2);
 				if (!b)
 				{
 					DLOG_ERR("failed to reconstruct packet after VERDICT_MODIFY\n");
-					// to reduce memory copying we used original packet buffer for reconstruction.
-					// it may have been modified. windows and BSD will send modified data despite of VERDICT_PASS.
-					// force same behavior on all OS
-					// it's LUA script error, they passed bad data
-					verdict = VERDICT_DROP;
+					verdict = VERDICT_PASS;
 					goto ex;
 				}
 				DLOG("reconstructed packet due to VERDICT_MODIFY. size %zu => %zu\n", dis->len_pkt, *len_mod_pkt);

@@ -99,8 +99,10 @@ uint32_t net16_add(uint16_t netorder_value, uint16_t cpuorder_increment);
 #define VERDICT_MODIFY		1
 #define VERDICT_DROP		2
 #define VERDICT_MASK		3
-#define VERDICT_NOCSUM		4
-#define VERDICT_MASK_VALID	7
+#define VERDICT_PRESERVE_NEXT	4
+#define VERDICT_MASK_VALID_LUA	(VERDICT_MASK|VERDICT_PRESERVE_NEXT)
+#define VERDICT_NOCSUM		8
+#define VERDICT_MASK_VALID	15
 
 #define IP4_TOS(ip_header) (ip_header ? ip_header->ip_tos : 0)
 #define IP4_IP_ID(ip_header) (ip_header ? ip_header->ip_id : 0)

@@ -42,7 +42,7 @@ function wgobfs(ctx, desync)
 		return
 	end
 	if not desync.arg.secret or #desync.arg.secret==0 then
-		error("wgobfs requires secret")
+		error("wgobfs: secret required")
 	end
 	if padmin>padmax then
 		error("wgobfs: padmin>padmax")
@@ -77,4 +77,72 @@ function wgobfs(ctx, desync)
 			DLOG("wgobfs: decrypt auth tag mismatch")
 		end
 	end
+end
+
+-- test case :
+--  endpoint1:
+--   --filter-icmp=0,8,128,129 --filter-ipp=193,198,209,250 --filter-tcp=* --filter-udp=* --in-range=a --lua-desync=ippxor:xor=192:dataxor=0xABCD
+--   nft add rule inet ztest pre meta mark and 0x40000000 == 0 meta l4proto {193, 198, 209, 250} queue num 200 bypass
+--   nft add rule inet ztest post meta mark and 0x40000000 == 0 tcp dport "{5001}" queue num 200 bypass
+--   nft add rule inet ztest post meta mark and 0x40000000 == 0 udp dport "{5001}" queue num 200 bypass
+--   iperf -i 1 -c endpoint2
+--  endpoint2:
+--   --filter-icmp=0,8,128,129 --filter-ipp=193,198,209,250 --filter-tcp=* --filter-udp=* --in-range=a --lua-desync=ippxor:xor=192:dataxor=0xABCD --server
+--   nft add rule inet ztest pre meta mark and 0x40000000 == 0 meta l4proto {193, 198, 209, 250} queue num 200 bypass
+--   nft add rule inet ztest post meta mark and 0x40000000 == 0 tcp sport "{5001}" queue num 200 bypass
+--   nft add rule inet ztest post meta mark and 0x40000000 == 0 udp sport "{5001}" queue num 200 bypass
+--   iperf -s
+-- xor ip protocol number and optionally xor tcp,udp,icmp payload with supplied blob pattern
+-- arg : ippxor - value to xor ip protocol number
+-- arg : dataxor - blob to xor tcp, udp or icmp payload
+function ippxor(ctx, desync)
+	local dataxor
+	local function dxor(dis)
+		if dataxor and dis.payload and #dis.payload>0 and (dis.tcp or dis.udp or dis.icmp) then
+			dis.payload = bxor(dis.payload, pattern(dataxor,1,#dis.payload))
+			return true
+		end
+		return false
+	end
+
+	if not desync.arg.ippxor then
+		error("ippxor: ippxor value required")
+	end
+	local ippxor = tonumber(desync.arg.ippxor)
+	if ippxor<0 or ippxor>0xFF then
+		error("ippxor: invalid ippxor value. should be 0..255")
+	end
+	if desync.arg.dataxor then
+		dataxor = blob(desync,desync.arg.dataxor)
+		if #dataxor==0 then
+			error("ippxor: empty dataxor value")
+		end
+	end
+
+	local l3_from = ip_proto_l3(desync.dis)
+	local l3_to = bitxor(l3_from, ippxor)
+
+	local bdxor = dxor(desync.dis)
+	if bdxor then
+		DLOG("ippxor: dataxor out")
+	end
+	fix_ip_proto(desync.dis, l3_to)
+
+	local raw_ip = reconstruct_dissect(desync.dis, {ip6_preserve_next=true})
+
+	local dis = dissect(raw_ip)
+	if not dis.ip and not dis.ip6 then
+		DLOG_ERR("ippxor: could not rebuild packet")
+		return
+	end
+
+	if not bdxor then
+		if dxor(dis) then
+			DLOG("ippxor: dataxor in")
+		end
+	end
+
+	desync.dis = dis
+	DLOG("ippxor: "..l3_from.." => "..l3_to)
+	return VERDICT_MODIFY + VERDICT_PRESERVE_NEXT
 end

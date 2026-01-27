@@ -175,6 +175,9 @@ end
 -- produce resulting verdict from 2 verdicts
 function verdict_aggregate(v1, v2)
 	local v
+	local vn = bitor(bitand(v1,VERDICT_PRESERVE_NEXT),bitand(v2,VERDICT_PRESERVE_NEXT))
+	v1 = bitand(v1, VERDICT_MASK)
+	v2 = bitand(v2, VERDICT_MASK)
 	v1 = v1 or VERDICT_PASS
 	v2 = v2 or VERDICT_PASS
 	if v1==VERDICT_DROP or v2==VERDICT_DROP then
@@ -184,7 +187,7 @@ function verdict_aggregate(v1, v2)
 	else
 		v=VERDICT_PASS
 	end
-	return v
+	return bitor(v,vn)
 end
 function plan_instance_execute(desync, verdict, instance)
 	apply_execution_plan(desync, instance)
@@ -748,6 +751,14 @@ function dis_reverse(dis)
 	end
 	if dis.udp then
 		dis.udp.uh_sport, dis.udp.uh_dport = dis.udp.uh_dport, dis.udp.uh_sport
+	end
+end
+
+function dis_reconstruct_l3(dis, options)
+	if dis.ip then
+		return csum_ip4_fix(reconstruct_iphdr(dis.ip))
+	elseif dis.ip6 then
+		return reconstruct_ip6hdr(dis.ip6, options)
 	end
 end
 
