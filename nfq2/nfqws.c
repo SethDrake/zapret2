@@ -1970,9 +1970,10 @@ int main(int argc, char **argv)
 		return 0;
 	}
 	WinSetIcon();
+#endif
 	MAKE_VER(params.verstr, sizeof(params.verstr));
 	printf("%s\n\n",params.verstr);
-#endif
+
 	int result, v;
 	int option_index = 0;
 	bool bSkip = false, bDry = false, bDupCheck = true, bTemplate;
