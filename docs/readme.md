@@ -465,7 +465,7 @@ nfqws2 --qnum 200 --server
 
 ```
 winws2
- --wf-icmp-in=0:199 --wf-udp-out=11
+ --wf-icmp-in=0:199 --wf-udp-out=5555
  --wf-raw-filter="ip.SrcAddr=1.2.3.4 or ip.DstAddr=1.2.3.4"
  --lua-init=@lua/zapret-lib.lua
  --lua-init=@lua/zapret-obfs.lua
