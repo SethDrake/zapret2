@@ -421,3 +421,54 @@ nfqws2 \
 
 Научитесь пользоваться `--debug` логом. Без него будет очень сложно понять *nfqws2* на начальном этапе и приспособиться к новой схеме.
 Ошибок будет много. Особенно, когда вы начнете писать свой Lua код. Их надо читать.
+
+### Не только лишь обман DPI
+
+Рабочий тестовый пример icmp обфускатора udp от винды к серверу на vps.
+Для теста используем wireguard. Ничего в конфигах менять не надо - wireguard будет думать, что он работает по udp, но на самом деле он преобразуется в пинги icmp, которые могут проходить NAT. Размер пакетов не изменяется, потому проблемы MTU нет.
+
+Будем загонять исходящие с клиента в в icmp type 8 (echo request) code 199 , исходящие с сервера в icmp type 0 (echo reply) code 199.
+Код у обоих концов делаем одинаковый, иначе NAT не соотнесет. Без NAT можно коды делать разными для клиента и сервера.
+Особый icmp code нужен для фильтрации от обычных пингов.
+
+wireguard server - 1.2.3.4:5555
+
+table ip ztest {
+        chain post {
+                type filter hook output priority mangle; policy accept;
+                meta mark & 0x40000000 == 0x00000000 udp sport 5555 queue flags bypass to 200
+        }
+
+        chain pre {
+                type filter hook input priority mangle; policy accept;
+                meta mark & 0x40000000 == 0x00000000 icmp type echo-request icmp code 199 queue flags bypass to 200
+        }
+}
+
+nfqws2 --qnum 200 --server
+ --lua-init=@/opt/zapret2/lua/zapret-lib.lua
+ --lua-init=@/opt/zapret2/lua/zapret-obfs.lua
+ --in-range=a
+ --lua-desync=udp2icmp:ccode=199:scode=199
+
+Клиент на винде :
+
+winws2
+ --wf-icmp-in=0:199 --wf-udp-out=11
+ --wf-raw-filter="ip.SrcAddr=1.2.3.4 or ip.DstAddr=1.2.3.4"
+ --lua-init=@lua/zapret-lib.lua
+ --lua-init=@lua/zapret-obfs.lua
+ --in-range=a
+ --lua-desync=udp2icmp:ccode=199:scode=199
+
+Все лишнее отсекается в ядре в windivert - проц зазря не грузит.
+--wf-raw-filter сочетается со всем остальным собранным конструктором по AND. Отсекает по IP адресу сервера.
+--wf-icmp-in отсекает входящие icmp типа 0 с кодом 199.
+
+И включаем wireguard.
+В шарке сплошняком пинги и реплаи с кодом 199
+
+Если IP клиента постоянен, можно дополнительно на стороне сервера сделать фильтр по IP клиента.
+
+Дополнительно можно сделать dataxor=blob на обоих концах, чтобы поксорить пейлоад.
+blob растягивается на размер пакета как pattern. Можно использовать от 1 hex byte до специально нагенеренного рандома. На обоих концах должен быть одинаковый
