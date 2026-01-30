@@ -328,7 +328,6 @@ function synhide(ctx, desync)
 			error("synhide: invalid kind value")
 		end
 	else
-		-- some firewalls allow only AECN bit (1). if reserved bits are !=0 => administratively prohibited
 		kind = 172 -- accurate ecn
 	end
 
