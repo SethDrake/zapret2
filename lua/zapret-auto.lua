@@ -405,6 +405,11 @@ function cond_payload_str(desync)
 	end
 	return desync.dis.payload and string.find(desync.dis.payload,desync.arg.pattern,1,true)
 end
+-- true if dissect is tcp and timestamp tcp option is present
+function cond_tcp_has_ts(desync)
+	return desync.dis.tcp and find_tcp_option(desync.dis.tcp.options, TCP_KIND_TS+11)
+end
+
 -- check iff function available. error if not
 function require_iff(desync, name)
 	if not desync.arg.iff then
@@ -430,6 +435,31 @@ function condition(ctx, desync)
 		plan_clear(desync)
 	end
 end
+-- execute further desync instances.
+-- each instance may have "cond" and "cond_neg" args.
+-- "cond" - condition function.  "neg" - invert condition function result
+function per_instance_condition(ctx, desync)
+	orchestrate(ctx, desync)
+
+	local verdict = VERDICT_PASS
+	while true do
+		local instance = plan_instance_pop(desync)
+		if not instance then break end
+		if instance.arg.cond then
+			if type(_G[instance.arg.cond])~="function" then
+				error(name..": invalid 'iff' function '"..instance.arg.cond.."'")
+			end
+			if not logical_xor(_G[instance.arg.cond](desync), instance.arg.cond_neg) then
+				DLOG("per_instance_condition: condition not satisfied. skipping "..instance.func_instance)
+				goto continue
+			end
+		end
+		verdict = plan_instance_execute(desync, verdict, instance)
+		::continue::
+	end
+	return verdict
+end
+
 -- clear execution plan if user provided 'iff' functions returns true
 -- can be used with other orchestrators to stop execution conditionally
 -- arg: iff - condition function. takes desync as arg and returns bool. (cant use 'if' because of reserved word)
