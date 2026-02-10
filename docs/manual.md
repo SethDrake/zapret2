@@ -5382,6 +5382,14 @@ ipt_first_packets()
 
 Выдает в stdout "-m connbytes --connbytes-dir=original --connbytes-mode=packets --connbytes $RANGE". RANGE определяется как "1:$1". Если $1 = "keepalive", не выдается ничего (нет фильтра по connbytes).
 
+```
+ipt_port_ipset()
+# $1 - имя ipset
+# $2 - список портов через запятую. диапазоны через "-"
+```
+
+Создает ipset типа bitamp:port со списком портов. Если ipset уже существует, заменяет в нем элементы.
+
 ##### Работа с nftables
 
 ```

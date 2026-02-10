@@ -5203,6 +5203,15 @@ ipt_first_packets()
 
 Outputs to stdout: `-m connbytes --connbytes-dir=original --connbytes-mode=packets --connbytes $RANGE`. `RANGE` is defined as "1:$1". If `$1` is "keepalive", nothing is output (no connbytes filter).
 
+```
+ipt_port_ipset()
+# $1 - ipset name
+# $2 - comma separated port or port range list. ranges are por1-port2
+```
+
+Creates "bitmap:port" ipset filled with the supplied port list. If the set already exists it's elements are replaced.
+
+
 ##### Working with nftables
 
 ```
