@@ -1248,10 +1248,16 @@ struct range64
 	uint64_t offset,len;
 };
 #define MAX_DEFRAG_PIECES	128
+static int cmp_range64(const void * a, const void * b)
+{
+	return (((struct range64*)a)->offset < ((struct range64*)b)->offset) ? -1 : (((struct range64*)a)->offset > ((struct range64*)b)->offset) ? 1 : 0;
+}
+/*
 static bool intersected_u64(uint64_t l1, uint64_t r1, uint64_t l2, uint64_t r2)
 {
-	return l1>=l2 && l1<=r2 || r1>=l2 && r1<=r2 || l2>=l1 && l2<=r1 || r2>=l1 && r2<=r1;
+	return l1 <= r2 && l2 <= r1;
 }
+*/
 
 bool QUICDefragCrypto(const uint8_t *clean,size_t clean_len, uint8_t *defrag,size_t *defrag_len, bool *bFull)
 {
@@ -1312,32 +1318,29 @@ bool QUICDefragCrypto(const uint8_t *clean,size_t clean_len, uint8_t *defrag,siz
 	}
 	if (found)
 	{
-		//for(i=0 ; i<range ; i++)
-		//	printf("range1 %llu-%llu\n",ranges[i].offset,ranges[i].offset+ranges[i].len);
-		for(i=range-1 ; i>=0 ; i--)
+		qsort(ranges, range, sizeof(*ranges), cmp_range64);
+
+//		for(i=0 ; i<range ; i++)
+//			printf("range1 %llu-%llu\n",ranges[i].offset,ranges[i].offset+ranges[i].len);
+
+		if (range>0)
 		{
-			r1 = ranges[i].offset + ranges[i].len;
-			for(j=i-1 ; j>=0 ; j--)
+			for (j=0,i=1; i < range; i++)
 			{
-				r2 = ranges[j].offset + ranges[j].len;
-				//printf("test intersect i=%d j=%d %llu-%llu %llu-%llu\n",i,j,ranges[i].offset,r1,ranges[j].offset,r2);
-				if (intersected_u64(ranges[i].offset,r1,ranges[j].offset,r2))
-				{
-					// join range
-					ranges[j].offset = MIN(ranges[i].offset, ranges[j].offset);
-					ranges[j].len = MAX(r1,r2) - ranges[j].offset;
-					// delete element i
-					range--;
-					memmove(ranges+i, ranges+i+1, (range-i)*sizeof(*ranges));
-					//printf("intersected %llu-%llu\n",ranges[j].offset,ranges[j].offset+ranges[j].len);
-					//for(int k=0 ; k<range ; k++)
-					//	printf("rangeX %llu-%llu\n",ranges[k].offset,ranges[k].offset+ranges[k].len);
-					break;
-				}
+				uint64_t current_end = ranges[j].offset + ranges[j].len;
+				uint64_t next_start = ranges[i].offset;
+				uint64_t next_end = ranges[i].offset + ranges[i].len;
+
+				if (next_start <= current_end)
+					ranges[j].len = MAX(next_end,current_end) - ranges[j].offset;
+				else
+					ranges[++j] = ranges[i];
 			}
+			range = j+1;
 		}
-		//for(i=0 ; i<range ; i++)
-		//	printf("range2 %llu-%llu\n",ranges[i].offset,ranges[i].offset+ranges[i].len);
+
+//		for(i=0 ; i<range ; i++)
+//			printf("range2 %llu-%llu\n",ranges[i].offset,ranges[i].offset+ranges[i].len);
 
 		defrag[0] = 6;
 		defrag[1] = 0; // offset
