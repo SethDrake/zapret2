@@ -1558,6 +1558,7 @@ static uint8_t dpi_desync_tcp_packet_play(
 		}
 		if (ps.l7payload==L7P_HTTP_REQ)
 		{
+			reasm_client_cancel(ps.ctrack);
 			ps.bHaveHost = HttpExtractHost(rdata_payload, rlen_payload, ps.host, sizeof(ps.host));
 		}
 		else if (ps.l7payload==L7P_TLS_CLIENT_HELLO || ps.ctrack_replay && ps.ctrack_replay->reasm_client_payload==L7P_TLS_CLIENT_HELLO && !ReasmIsEmpty(&ps.ctrack_replay->reasm_client))
