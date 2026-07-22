@@ -51,6 +51,7 @@ QNUM=${QNUM:-$(($$ % 64536 + 1000))}
 
 IPSET_FILE=/tmp/blockcheck_ipset_$$.txt
 PARALLEL_OUT=/tmp/zapret_parallel_$$
+CYGPID_FILE=/tmp/blockcheck_cygpid_$$
 HDRTEMP=/tmp/zapret-hdr-$$
 NFT_TABLE=blockcheck$$
 IPT_OUT_CHAIN=blockcheck_output_$$
@@ -961,9 +962,26 @@ pktws_ipt_unprepare_udp()
 	pktws_ipt_unprepare udp $1
 }
 
+pktws_cygstart_wait_pid()
+{
+	local n=1
+	while : ; do
+		minsleep
+		if [ -f "$CYGPID_FILE" ]; then
+			read PID <"$CYGPID_FILE"
+			rm -f "$CYGPID_FILE"
+			break
+		fi
+		n=$(($n+1))
+		[ $n -gt 20 ] && {
+			echo "pktws failed to initialize within specified time !!"
+			break
+		}
+	done
+}
+
 pktws_start()
 {
-	local pidfile n
 	case "$UNAME" in
 		Linux)
 			"$NFQWS2" --uid $WS_UID:$WS_GID --fwmark=$DESYNC_MARK --qnum=$QNUM --lua-init=@"$ZAPRET_BASE/lua/zapret-lib.lua" --lua-init=@"$ZAPRET_BASE/lua/zapret-antidpi.lua" "$@" >/dev/null &
@@ -978,26 +996,15 @@ pktws_start()
 			minsleep
 			;;
 		CYGWIN)
-			pidfile="/tmp/blockcheck_cygpid_$$"
+			# create flag for graceful kill in case of interrupt signal
+			PKTWS_CYGSTART_WAIT=1
 			# avoid fork
 			# allow multiple PKTWS instances with the same wf filter but different ipset
 			# some methods require empty acks
-			cygstart --hide "$WINWS2" --pidfile="$pidfile" --wf-dup-check=0 --wf-tcp-empty=1 $WF --ipset="$IPSET_FILE" --lua-init=@"$ZAPRET_BASE/lua/zapret-lib.lua" --lua-init=@"$ZAPRET_BASE/lua/zapret-antidpi.lua" "$@" >/dev/null &
+			cygstart --hide "$WINWS2" --pidfile="$CYGPID_FILE" --wf-dup-check=0 --wf-tcp-empty=1 $WF --ipset="$IPSET_FILE" --lua-init=@"$ZAPRET_BASE/lua/zapret-lib.lua" --lua-init=@"$ZAPRET_BASE/lua/zapret-antidpi.lua" "$@" >/dev/null &
 			# give some time to initialize
-			n=1
-			while : ; do
-				minsleep
-				if [ -f "$pidfile" ]; then
-					read PID <"$pidfile"
-					rm -f "$pidfile"
-					break
-				fi
-				n=$(($n+1))
-				[ $n -gt 20 ] && {
-					echo "pktws failed to initialize within specified time !!"
-					break
-				}
-			done
+			pktws_cygstart_wait_pid
+			unset PKTWS_CYGSTART_WAIT
 			;;
 	esac
 }
@@ -1872,9 +1879,31 @@ check_dns()
 	return $r
 }
 
+block_signals()
+{
+	# prevent signal function reenter
+	trap '' QUIT
+	trap '' TERM
+	trap '' HUP
+	trap '' PIPE
+	trap '' INT
+}
+untrap()
+{
+	trap - QUIT
+	trap - TERM
+	trap - HUP
+	trap - PIPE
+	trap - INT
+}
+
 unprepare_all()
 {
 	# make sure we are not in a middle state that impacts connectivity
+
+	# in cygwin we can be interrupted when cygstart is already called but PID is not obtained yet. must wait for the PID to know what to kill
+	[ "$UNAME" = CYGWIN -a -z "$PID" -a "$PKTWS_CYGSTART_WAIT" = 1 ] && pktws_cygstart_wait_pid
+
 	ws_kill
 	wait
 	[ -n "$IPV" ] && {
@@ -1883,22 +1912,27 @@ unprepare_all()
 		pktws_ipt_unprepare_udp $QUIC_PORT
 	}
 	cleanup
-	rm -f "${HDRTEMP}"* "${PARALLEL_OUT}"*
+	rm -f "${HDRTEMP}"* "${PARALLEL_OUT}"* "${CYGPID_FILE}"
 }
 sigint()
 {
+	block_signals
 	echo
 	echo terminating...
 	unprepare_all
+	# exitp can wait for the user input. restore default signal behavior without trap
+	untrap
 	exitp 1
 }
 sigint_cleanup()
 {
+	block_signals
 	cleanup
 	exit 1
 }
 sigsilent()
 {
+	block_signals
 	# must not write anything here to stdout
 	unprepare_all
 	exit 1
@@ -1937,11 +1971,7 @@ for dom in $DOMAINS; do
 		[ "$ENABLE_HTTP3" = 1 ] && check_domain_http3 $dom
 	done
 done
-trap - QUIT
-trap - TERM
-trap - HUP
-trap - PIPE
-trap - INT
+untrap
 
 cleanup
 
