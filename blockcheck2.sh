@@ -963,7 +963,7 @@ pktws_ipt_unprepare_udp()
 
 pktws_start()
 {
-	local pidfile
+	local pidfile n
 	case "$UNAME" in
 		Linux)
 			"$NFQWS2" --uid $WS_UID:$WS_GID --fwmark=$DESYNC_MARK --qnum=$QNUM --lua-init=@"$ZAPRET_BASE/lua/zapret-lib.lua" --lua-init=@"$ZAPRET_BASE/lua/zapret-antidpi.lua" "$@" >/dev/null &
@@ -984,13 +984,20 @@ pktws_start()
 			# some methods require empty acks
 			cygstart --hide "$WINWS2" --pidfile="$pidfile" --wf-dup-check=0 --wf-tcp-empty=1 $WF --ipset="$IPSET_FILE" --lua-init=@"$ZAPRET_BASE/lua/zapret-lib.lua" --lua-init=@"$ZAPRET_BASE/lua/zapret-antidpi.lua" "$@" >/dev/null &
 			# give some time to initialize
-			minsleep
-			if [ -f "$pidfile" ]; then
-				read PID <"$pidfile"
-				rm -f "$pidfile"
-			else
-				echo "pktws failed to initialize within specified time !!"
-			fi
+			n=1
+			while : ; do
+				minsleep
+				if [ -f "$pidfile" ]; then
+					read PID <"$pidfile"
+					rm -f "$pidfile"
+					break
+				fi
+				n=$(($n+1))
+				[ $n -gt 20 ] && {
+					echo "pktws failed to initialize within specified time !!"
+					break
+				}
+			done
 			;;
 	esac
 }
