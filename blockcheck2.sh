@@ -1882,19 +1882,11 @@ check_dns()
 block_signals()
 {
 	# prevent signal function reenter
-	trap '' QUIT
-	trap '' TERM
-	trap '' HUP
-	trap '' PIPE
-	trap '' INT
+	trap '' QUIT TERM HUP PIPE INT
 }
 untrap()
 {
-	trap - QUIT
-	trap - TERM
-	trap - HUP
-	trap - PIPE
-	trap - INT
+	trap - QUIT TERM HUP PIPE INT
 }
 
 unprepare_all()
@@ -1954,10 +1946,7 @@ PID=
 NREPORT=
 unset WF
 trap sigint INT
-trap sigsilent PIPE
-trap sigsilent HUP
-trap sigsilent TERM
-trap sigsilent QUIT
+trap sigsilent PIPE HUP TERM QUIT
 for dom in $DOMAINS; do
 	for IPV in $IPVS; do
 		configure_ip_version
