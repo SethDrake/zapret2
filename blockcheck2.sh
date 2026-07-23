@@ -1588,10 +1588,12 @@ ask_params()
 				echo "TLS 1.3 only strategy is better than nothing."
 				ask_yes_no_var ENABLE_HTTPS_TLS13 "check https tls 1.3"
 			}
-		else
+		fi
+	}
+	[ "$ENABLE_HTTPS_TLS13" = 1 -a -z "$TLS13" ] && {
 			echo
 			echo "installed curl version does not support TLS 1.3 . tests disabled."
-		fi
+			ENABLE_HTTPS_TLS13=0
 	}
 
 	[ -n "$ENABLE_HTTP3" ] || {
@@ -1603,10 +1605,12 @@ ask_params()
 				echo "make sure target domain(s) support QUIC or result will be negative in any case"
 				ask_yes_no_var ENABLE_HTTP3 "check http3 QUIC"
 			}
-		else
-			echo
-			echo "installed curl version does not support http3 QUIC. tests disabled."
 		fi
+	}
+	[ "$ENABLE_HTTP3" = 1 -a -z "$HTTP3" ] && {
+			echo
+			echo "WARNING ! installed curl version does not support http3 QUIC. tests disabled."
+			ENABLE_HTTP3=0
 	}
 
 	[ -n "$REPEATS" ] || {
