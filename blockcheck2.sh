@@ -1592,7 +1592,7 @@ ask_params()
 	}
 	[ "$ENABLE_HTTPS_TLS13" = 1 -a -z "$TLS13" ] && {
 			echo
-			echo "installed curl version does not support TLS 1.3 . tests disabled."
+			echo "WARNING ! installed curl version does not support TLS 1.3 . tests disabled."
 			ENABLE_HTTPS_TLS13=0
 	}
 
