@@ -51,7 +51,6 @@ QNUM=${QNUM:-$(($$ % 64536 + 1000))}
 
 IPSET_FILE=/tmp/blockcheck_ipset_$$.txt
 PARALLEL_OUT=/tmp/zapret_parallel_$$
-CYGPID_FILE=/tmp/blockcheck_cygpid_$$
 HDRTEMP=/tmp/zapret-hdr-$$
 NFT_TABLE=blockcheck$$
 IPT_OUT_CHAIN=blockcheck_output_$$
@@ -75,30 +74,12 @@ killwait()
 {
 	# $1 - signal (-9, -2, ...)
 	# $2 - pid
-
-	local n
-
-	case "$UNAME" in
-		CYGWIN)
-			# do not use builtin bash kill if run under bash
-			/bin/kill $1 $2
-			n=1
-			# wait only waits for child processes. cygstart makes process non-child
-			while kill -0 "$2" 2>/dev/null; do
-				msleep 20
-				n=$(($n+1))
-				[ $n -gt 50 ] && {
-					echo "could not kill pktws within specified time !!"
-					break
-				}
-			done
-			;;
-		*)
-			kill $1 $2
-			# suppress job kill message
-			wait $2 2>/dev/null
-			;;
-	esac
+	local KILL=kill
+	# avoid internal bash kill in cygwin to support -f
+	[ "$UNAME" = "CYGWIN" ] && KILL=/bin/kill
+	$KILL $1 $2
+	# suppress job kill message
+	wait $2 2>/dev/null
 }
 
 exitp()
@@ -962,52 +943,30 @@ pktws_ipt_unprepare_udp()
 	pktws_ipt_unprepare udp $1
 }
 
-pktws_cygstart_wait_pid()
-{
-	local n=1
-	while : ; do
-		minsleep
-		if [ -f "$CYGPID_FILE" ]; then
-			read PID <"$CYGPID_FILE"
-			rm -f "$CYGPID_FILE"
-			break
-		fi
-		n=$(($n+1))
-		[ $n -gt 20 ] && {
-			echo "pktws failed to initialize within specified time !!"
-			break
-		}
-	done
-}
 
 pktws_start()
 {
 	case "$UNAME" in
 		Linux)
 			"$NFQWS2" --uid $WS_UID:$WS_GID --fwmark=$DESYNC_MARK --qnum=$QNUM --lua-init=@"$ZAPRET_BASE/lua/zapret-lib.lua" --lua-init=@"$ZAPRET_BASE/lua/zapret-antidpi.lua" "$@" >/dev/null &
-			PID=$!
-			# give some time to initialize
-			minsleep
 			;;
 		FreeBSD|OpenBSD)
 			"$DVTWS2" --port=$IPFW_DIVERT_PORT --lua-init=@"$ZAPRET_BASE/lua/zapret-lib.lua" --lua-init=@"$ZAPRET_BASE/lua/zapret-antidpi.lua" "$@" >/dev/null &
-			PID=$!
-			# give some time to initialize
-			minsleep
 			;;
 		CYGWIN)
-			# create flag for graceful kill in case of interrupt signal
-			PKTWS_CYGSTART_WAIT=1
-			# avoid fork
 			# allow multiple PKTWS instances with the same wf filter but different ipset
 			# some methods require empty acks
-			cygstart --hide "$WINWS2" --pidfile="$CYGPID_FILE" --wf-dup-check=0 --wf-tcp-empty=1 $WF --ipset="$IPSET_FILE" --lua-init=@"$ZAPRET_BASE/lua/zapret-lib.lua" --lua-init=@"$ZAPRET_BASE/lua/zapret-antidpi.lua" "$@" >/dev/null &
-			# give some time to initialize
-			pktws_cygstart_wait_pid
-			unset PKTWS_CYGSTART_WAIT
+			# use guard timer to kill unmanaged pktws instances
+			"$WINWS2" --wf-dup-check=0 --wf-tcp-empty=1 $WF --ipset="$IPSET_FILE" \
+				--lua-init="timer_set('exit_guard',function(name,data) io.stderr:write('exit_guard\n'); os.exit(3000); end,20000,true)" \
+				--lua-init=@"$ZAPRET_BASE/lua/zapret-lib.lua" --lua-init=@"$ZAPRET_BASE/lua/zapret-antidpi.lua" "$@" >/dev/null &
 			;;
 	esac
+	PID=$!
+	# give some time to initialize
+	minsleep
 }
+
 ws_kill()
 {
 	local sig
@@ -1892,10 +1851,6 @@ untrap()
 unprepare_all()
 {
 	# make sure we are not in a middle state that impacts connectivity
-
-	# in cygwin we can be interrupted when cygstart is already called but PID is not obtained yet. must wait for the PID to know what to kill
-	[ "$UNAME" = CYGWIN -a -z "$PID" -a "$PKTWS_CYGSTART_WAIT" = 1 ] && pktws_cygstart_wait_pid
-
 	ws_kill
 	wait
 	[ -n "$IPV" ] && {
@@ -1904,7 +1859,7 @@ unprepare_all()
 		pktws_ipt_unprepare_udp $QUIC_PORT
 	}
 	cleanup
-	rm -f "${HDRTEMP}"* "${PARALLEL_OUT}"* "${CYGPID_FILE}"
+	rm -f "${HDRTEMP}"* "${PARALLEL_OUT}"*
 }
 sigint()
 {
