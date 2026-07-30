@@ -2525,6 +2525,11 @@ bool lua_reconstruct_dissect(lua_State *L, int idx, uint8_t *buf, size_t *len, b
 			if (lua_type(L,-1)==LUA_TTABLE)
 			{
 				l = sizeof(struct udphdr);
+				if (left<l)
+				{
+					DLOG_ERR("reconstruct_dissect: no space for udp header\n");
+					goto err;
+				}
 				udp = (struct udphdr*)data;
 				if (!lua_reconstruct_udphdr(L, -1, udp))
 				{
@@ -2539,6 +2544,11 @@ bool lua_reconstruct_dissect(lua_State *L, int idx, uint8_t *buf, size_t *len, b
 				if (lua_type(L,-1)==LUA_TTABLE)
 				{
 					l = sizeof(struct icmp46);
+					if (left<l)
+					{
+						DLOG_ERR("reconstruct_dissect: no space for icmp header\n");
+						goto err;
+					}
 					icmp = (struct icmp46*)data;
 					if (!lua_reconstruct_icmphdr(L, -1, icmp))
 					{
