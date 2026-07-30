@@ -309,7 +309,7 @@ static struct hostlist_file *RegisterHostlist_(struct hostlist_files_head *hostl
 }
 struct hostlist_file *RegisterHostlist(struct desync_profile *dp, bool bExclude, const char *filename)
 {
-	if (filename && !file_mod_time(filename))
+	if (filename && !file_size(filename,NULL))
 	{
 		DLOG_ERR("cannot access hostlist file '%s'\n",filename);
 		return NULL;

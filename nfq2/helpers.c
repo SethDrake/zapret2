@@ -424,7 +424,7 @@ bool file_size(const char *filename, off_t *size)
 {
 	struct stat st;
 	if (stat(filename, &st) == -1) return false;
-	*size = st.st_size;
+	if (size) *size = st.st_size;
 	return true;
 }
 time_t file_mod_time(const char *filename)
