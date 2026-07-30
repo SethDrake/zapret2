@@ -994,7 +994,6 @@ static uint8_t desync(
 					lua_pushf_global(params.L, "tcp_mss", "DEFAULT_MSS");
 			}
 			ref_arg = luaL_ref(params.L, LUA_REGISTRYINDEX);
-
 			ctx->func_n = 1;
 			LIST_FOREACH(func, &dp->lua_desync, next)
 			{
@@ -1027,7 +1026,12 @@ static uint8_t desync(
 							}
 							lua_rawgeti(params.L, LUA_REGISTRYINDEX, params.ref_desync_ctx);
 							lua_rawgeti(params.L, LUA_REGISTRYINDEX, ref_arg);
-							lua_pushf_args(params.L, &func->args, -1, true);
+							if (!lua_pushf_args(params.L, &func->args, -1, true))
+							{
+								// some % or # blobs cannot be resolved
+								lua_pop(params.L, 3);
+								goto err;
+							}
 							lua_pushf_str(params.L, "func", func->func);
 							lua_pushf_int(params.L, "func_n", ctx->func_n);
 							lua_pushf_str(params.L, "func_instance", instance);

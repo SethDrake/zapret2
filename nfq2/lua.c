@@ -1036,7 +1036,8 @@ static int luacall_execution_plan(lua_State *L)
 			lua_pushinteger(L, n - ctx->func_n);
 			lua_createtable(L, 0, 7);
 
-			lua_pushf_args(L,&func->args, -1, false);
+			lua_pushf_args(L,&func->args, -1, false); // cannot return false if subst_prefix=false
+
 			lua_pushf_str(L,"func", func->func);
 			lua_pushf_int(L,"func_n", n);
 			lua_pushf_str(L,"func_instance", instance);
@@ -1240,21 +1241,33 @@ void lua_pushf_global(lua_State *L, const char *field, const char *global)
 	lua_rawset(L,-3);
 }
 
-void lua_push_blob(lua_State *L, int idx_desync, const char *blob)
+bool lua_push_blob(lua_State *L, int idx_desync, const char *blob)
 {
 	lua_getfield(L, idx_desync, blob);
 	if (lua_type(L,-1)==LUA_TNIL)
 	{
 		lua_pop(L,1);
 		lua_getglobal(L, blob);
+		if (lua_type(L,-1)==LUA_TNIL)
+		{
+			lua_pop(L,1);
+			DLOG_ERR("blob '%s' unavailable\n", blob);
+			return false;
+		}
 	}
 	lua_tostring(L,-1);
+	return true;
 }
-void lua_pushf_blob(lua_State *L, int idx_desync, const char *field, const char *blob)
+bool lua_pushf_blob(lua_State *L, int idx_desync, const char *field, const char *blob)
 {
 	lua_pushstring(L, field);
-	lua_push_blob(L, idx_desync, blob);
+	if (!lua_push_blob(L, idx_desync, blob))
+	{
+		lua_pop(L,1);
+		return false;
+	}
 	lua_rawset(L,-3);
+	return true;
 }
 
 void lua_push_ipaddr(lua_State *L, const struct sockaddr *sa)
@@ -1747,7 +1760,7 @@ void lua_pushf_ctrack(lua_State *L, const t_ctrack *ctrack, const t_ctrack_posit
 	LUA_STACK_GUARD_LEAVE(L, 0)
 }
 
-void lua_pushf_args(lua_State *L, const struct str2_list_head *args, int idx_desync, bool subst_prefix)
+bool lua_pushf_args(lua_State *L, const struct str2_list_head *args, int idx_desync, bool subst_prefix)
 {
 	// var=val - pass val string
 	// var=%val - subst 'val' blob
@@ -1774,10 +1787,20 @@ void lua_pushf_args(lua_State *L, const struct str2_list_head *args, int idx_des
 				// escape char
 				lua_pushf_str(L, var, val+1);
 			else if (val[0]=='%')
-				lua_pushf_blob(L, idx_desync, var, val+1);
+			{
+				if (!lua_pushf_blob(L, idx_desync, var, val+1))
+				{
+					lua_pop(L,2);
+					goto err;
+				}
+			}
 			else if (val[0]=='#')
 			{
-				lua_push_blob(L, idx_desync, val+1);
+				if (!lua_push_blob(L, idx_desync, val+1))
+				{
+					lua_pop(L,2);
+					goto err;
+				}
 				lua_Integer len = lua_rawlen(L, -1);
 				lua_pop(L,1);
 				lua_pushstring(L, var);
@@ -1794,6 +1817,10 @@ void lua_pushf_args(lua_State *L, const struct str2_list_head *args, int idx_des
 	lua_rawset(L,-3);
 
 	LUA_STACK_GUARD_LEAVE(L, 0)
+	return true;
+err:
+	LUA_STACK_GUARD_LEAVE(L, 0)
+	return false;
 }
 void lua_pushf_pos(lua_State *L, const char *name, const struct packet_pos *pos)
 {
