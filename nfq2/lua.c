@@ -3003,7 +3003,7 @@ static int luacall_rawsend_dissect(lua_State *L)
 static int luacall_conntrack_feed(lua_State *L)
 {
 	// conntrack_feed(dissect/raw_packet[, reconstruct_opts]) return track,bOutgoing
-	lua_check_argc_range(L,"conntrack_feed",1,3);
+	lua_check_argc_range(L,"conntrack_feed",1,2);
 
 	LUA_STACK_GUARD_ENTER(L)
 
