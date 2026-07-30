@@ -3617,7 +3617,7 @@ May not be unique.
 function desync_timer_name(desync)
 ```
 
-Construct timer name that includes dis_timer_name result + conntrack packet number.
+Construct timer name that includes instance name, dis_timer_name result, conntrack packet number.
 If track is absent random characters are added to the end.
 This name can be considered unique per desync and can be used as an oneshot timer name.
 
