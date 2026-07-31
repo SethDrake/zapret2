@@ -320,3 +320,4 @@ v0.9.4.3
 * blockcheck2: revert cygstart method as it brings more problems than profit
 * nfqws2: stop execution plan in C code if a blob is unavailable
 * nfqws2: desync_timer_name includes now instance name
+* builder_linux: optional build with zlib-ng : set ZLIB_NG=1 variable
