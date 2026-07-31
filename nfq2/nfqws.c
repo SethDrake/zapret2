@@ -1117,7 +1117,7 @@ static char* item_name(char **str)
 
 static struct blob_item *load_blob_to_collection(const char *filename, struct blob_collection_head *blobs, size_t max_size, size_t size_reserve)
 {
-	struct blob_item *blob = blob_collection_add(blobs);
+	struct blob_item *blob;
 	uint8_t *p;
 	char *name;
 
@@ -1159,6 +1159,7 @@ static struct blob_item *load_blob_to_collection(const char *filename, struct bl
 		free(name);
 		exit_clean(1);
 	}
+	blob = blob_collection_add(blobs);
 	if (!blob || (!(blob->data = malloc(max_size + size_reserve))))
 	{
 		free(name);
