@@ -1024,7 +1024,7 @@ On the Lua side, dangerous functions are removed: `os.execute`, `io.popen`, `pac
 
 ## Calling Lua code
 
-Lua code is invoked in two stages:
+Lua code is invoked in 3 stages:
 
 1. Once at program startup via `--lua-init=code|@file`. If the parameter value starts with `@`, a file is executed; otherwise, the value is treated as Lua code. Gzip file compression is supported. The program first checks for "file", then "file.gz".
 2. During profile processing via `--lua-desync=function_name:arg1[=val1]:arg2[=val2]:argN[=valN]`.
@@ -1033,6 +1033,7 @@ Two types of automatic substitutions are implemented on the C side:
 `%var` substitutes the value of the variable `desync.var` or `var` if the former is missing.
 `#var` substitutes the length of the variable `desync.var` or `var` if the former is missing.
 Colons and the `%`, `#` symbols at the beginning can be escaped with a backslash `\`.
+3. During [timer](#timers) processing.
 
 Both `--lua-init` and `--lua-desync` can be used multiple times. Execution follows the exact order in which they are specified.
 
