@@ -427,11 +427,6 @@ bool file_size(const char *filename, off_t *size)
 	if (size) *size = st.st_size;
 	return true;
 }
-time_t file_mod_time(const char *filename)
-{
-	struct stat st;
-	return stat(filename, &st) == -1 ? 0 : st.st_mtime;
-}
 bool file_mod_signature(const char *filename, file_mod_sig *ms)
 {
 	struct stat st;
