@@ -821,7 +821,7 @@ pktws_ipt_prepare()
 	# $2 - port
 	# $3 - ip list
 
-	local ip n= v=
+	local ip v=
 
 	case "$FWTYPE" in
 		iptables)
@@ -845,9 +845,8 @@ pktws_ipt_prepare()
 			WF="--wf-l3=ipv${IPV} --wf-${1}-out=$2"
 			WFRAWF=
 			for ip in $3; do
-				[ -n "$n" ] && WFRAWF="$WFRAWF or "
+				[ -n "$WFRAWF" ] && WFRAWF="$WFRAWF or "
 				WFRAWF="${WFRAWF}ip${v}.DstAddr=$ip or ip${v}.SrcAddr=$ip"
-				n=1
 			done
 			;;
 
