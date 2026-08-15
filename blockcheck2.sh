@@ -954,10 +954,10 @@ pktws_start()
 			"$DVTWS2" --port=$IPFW_DIVERT_PORT --lua-init=@"$ZAPRET_BASE/lua/zapret-lib.lua" --lua-init=@"$ZAPRET_BASE/lua/zapret-antidpi.lua" "$@" >/dev/null &
 			;;
 		CYGWIN)
-			# allow multiple PKTWS instances with the same wf filter but different ipset
 			# some methods require empty acks
+			# use raw filter to filter target ip addresses in-kernel to allow multiple blockchecks running at the same time
 			# use guard timer to kill unmanaged pktws instances
-			"$WINWS2" --wf-dup-check=0 --wf-tcp-empty=1 $WF --wf-raw-filter="$WFRAWF" \
+			"$WINWS2" --wf-tcp-empty=1 $WF --wf-raw-filter="$WFRAWF" \
 				--lua-init="timer_set('exit_guard',function(name,data) io.stderr:write('exit_guard\n'); os.exit(3000); end,20000,true)" \
 				--lua-init=@"$ZAPRET_BASE/lua/zapret-lib.lua" --lua-init=@"$ZAPRET_BASE/lua/zapret-antidpi.lua" "$@" >/dev/null &
 			;;
