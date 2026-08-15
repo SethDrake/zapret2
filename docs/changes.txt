@@ -322,3 +322,7 @@ v0.9.4.3
 * nfqws2: desync_timer_name includes now instance name
 * builder_linux: optional build with zlib-ng : set ZLIB_NG=1 variable
 * github: remove high_entropy_va patch for windivert.dll, but leave dynamic_base
+
+1.0.5
+
+* blockcheck2: use --wf-raw-filter in Windows instead of --ipset to limit target IP addresses
