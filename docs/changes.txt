@@ -326,3 +326,4 @@ v0.9.4.3
 1.0.5
 
 * blockcheck2: use --wf-raw-filter in Windows instead of --ipset to limit target IP addresses
+* github, builder_linux: lua 5.5.1
