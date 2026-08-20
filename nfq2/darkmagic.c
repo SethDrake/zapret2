@@ -1111,6 +1111,7 @@ bool win_sandbox(void)
 static HANDLE w_filter = NULL;
 static OVERLAPPED ovl = { .hEvent = NULL };
 static const struct str_list_head *wlan_filter_ssid = NULL, *nlm_filter_net = NULL;
+static bool wlan_filter_ssid_neg = false, nlm_filter_net_neg = false;
 static DWORD logical_net_filter_tick=0;
 INetworkListManager* pNetworkListManager=NULL;
 
@@ -1230,11 +1231,14 @@ t_WlanQueryInterface f_WlanQueryInterface = NULL;
 t_WlanFreeMemory f_WlanFreeMemory = NULL;
 HMODULE hdll_wlanapi = NULL;
 
-bool win_dark_init(const struct str_list_head *ssid_filter, const struct str_list_head *nlm_filter)
+bool win_dark_init(const struct str_list_head *ssid_filter, bool ssid_filter_neg, const struct str_list_head *nlm_filter, bool nlm_filter_neg)
 {
 	win_dark_deinit();
 	if (LIST_EMPTY(ssid_filter)) ssid_filter=NULL;
 	if (LIST_EMPTY(nlm_filter)) nlm_filter=NULL;
+
+	wlan_filter_ssid_neg = ssid_filter_neg;
+	nlm_filter_net_neg = nlm_filter_neg;
 
 	if (nlm_filter)
 	{
@@ -1288,6 +1292,7 @@ void win_dark_deinit(void)
 	}
 	if (nlm_filter_net) CoUninitialize();
 	wlan_filter_ssid = nlm_filter_net = NULL;
+	wlan_filter_ssid_neg = nlm_filter_net_neg = false;
 	if (hdll_wlanapi)
 	{
 		FreeLibrary(hdll_wlanapi);
@@ -1525,15 +1530,17 @@ found:
 	goto ex;
 }
 
-bool logical_net_filter_match(void)
-{
-	return wlan_filter_match(wlan_filter_ssid) && nlm_filter_match(nlm_filter_net);
-}
-
 bool logical_net_filter_present(void)
 {
 	return (wlan_filter_ssid && !LIST_EMPTY(wlan_filter_ssid)) || (nlm_filter_net && !LIST_EMPTY(nlm_filter_net));
 }
+
+bool logical_net_filter_match(void)
+{
+	return	(wlan_filter_match(wlan_filter_ssid) ^ wlan_filter_ssid_neg) &&
+		(nlm_filter_match(nlm_filter_net) ^ nlm_filter_net_neg);
+}
+
 
 
 

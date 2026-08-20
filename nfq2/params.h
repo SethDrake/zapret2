@@ -72,6 +72,7 @@ struct desync_profile
 	// annot use global filter because it's not possible to bind multiple instances to a single queue
 	// it's possible to run multiple winws2 instances on the same windivert filter, but it's not the case for linux
 	struct str_list_head filter_ssid;
+	bool filter_ssid_neg;
 #endif
 
 	// list of pointers to ipsets
@@ -149,6 +150,7 @@ struct params_s
 	
 #ifdef __CYGWIN__
 	struct str_list_head ssid_filter,nlm_filter;
+	bool ssid_filter_neg, nlm_filter_neg;
 	struct str_list_head wf_raw_part;
 
 	char *windivert_filter;

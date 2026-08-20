@@ -241,7 +241,7 @@ static bool dp_match(
 		// L7 filter does not match
 		return false;
 #ifdef HAS_FILTER_SSID
-	if (!LIST_EMPTY(&dp->filter_ssid) && !strlist_search(&dp->filter_ssid, ssid))
+	if (!LIST_EMPTY(&dp->filter_ssid) && (!strlist_search(&dp->filter_ssid, ssid) ^ dp->filter_ssid_neg))
 		return false;
 #endif
 

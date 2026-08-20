@@ -876,7 +876,7 @@ static int win_main(void)
 		return ERROR_TOO_MANY_OPEN_FILES; // code 4 = The system cannot open the file
 	}
 
-	if (!win_dark_init(&params.ssid_filter, &params.nlm_filter))
+	if (!win_dark_init(&params.ssid_filter, params.ssid_filter_neg, &params.nlm_filter, params.nlm_filter_neg))
 	{
 		DLOG_ERR("win_dark_init failed. win32 error %u (0x%08X)\n", w_win32_error, w_win32_error);
 		res=w_win32_error; goto ex;
@@ -1865,7 +1865,9 @@ static void exithelp(void)
 		" --wf-save=<filename>\t\t\t\t\t; save windivert filter string to a file and exit\n"
 		"\nLOGICAL NETWORK FILTER:\n"
 		" --ssid-filter=ssid1[,ssid2,ssid3,...]\t\t\t; enable winws2 only if any of specified wifi SSIDs connected\n"
+		" --ssid-filter-neg=[0|1]\t\t\t\t; invert SSID filter\n"
 		" --nlm-filter=net1[,net2,net3,...]\t\t\t; enable winws2 only if any of specified NLM network is connected. names and GUIDs are accepted.\n"
+		" --nlm-filter-neg=[0|1]\t\t\t\t\t; invert NLM filter\n"
 		" --nlm-list[=all]\t\t\t\t\t; list Network List Manager (NLM) networks. connected only or all.\n"
 #endif
 		"\nDESYNC ENGINE INIT:\n"
@@ -1888,6 +1890,7 @@ static void exithelp(void)
 		" --filter-l7=proto[,proto]\t\t\t\t; L6-L7 protocol filter : %s\n"
 #ifdef HAS_FILTER_SSID
 		" --filter-ssid=ssid1[,ssid2,ssid3,...]\t\t\t; per profile wifi SSID filter\n"
+		" --filter-ssid-neg=[0|1]\t\t\t\t; invert SSID filter\n"
 #endif
 		" --ipset=<filename>\t\t\t\t\t; ipset include filter (one ip/CIDR per line, ipv4 and ipv6 accepted, gzip supported, multiple ipsets allowed)\n"
 		" --ipset-ip=<ip_list>\t\t\t\t\t; comma separated fixed subnet list\n"
@@ -2040,6 +2043,7 @@ enum opt_indices {
 	IDX_FILTER_L7,
 #ifdef HAS_FILTER_SSID
 	IDX_FILTER_SSID,
+	IDX_FILTER_SSID_NEG,
 #endif
 	IDX_IPSET,
 	IDX_IPSET_IP,
@@ -2071,7 +2075,9 @@ enum opt_indices {
 	IDX_WF_DUP_CHECK,
 	IDX_WF_SAVE,
 	IDX_SSID_FILTER,
+	IDX_SSID_FILTER_NEG,
 	IDX_NLM_FILTER,
+	IDX_NLM_FILTER_NEG,
 	IDX_NLM_LIST,
 #endif
 	IDX_LAST
@@ -2142,6 +2148,7 @@ static const struct option long_options[] = {
 	[IDX_FILTER_L7] = {"filter-l7", required_argument, 0, 0},
 #ifdef HAS_FILTER_SSID
 	[IDX_FILTER_SSID] = {"filter-ssid", required_argument, 0, 0},
+	[IDX_FILTER_SSID_NEG] = {"filter-ssid-neg", optional_argument, 0, 0},
 #endif
 	[IDX_IPSET] = {"ipset", required_argument, 0, 0},
 	[IDX_IPSET_IP] = {"ipset-ip", required_argument, 0, 0},
@@ -2173,7 +2180,9 @@ static const struct option long_options[] = {
 	[IDX_WF_SAVE] = {"wf-save", required_argument, 0, 0},
 	[IDX_WF_DUP_CHECK] = {"wf-dup-check", optional_argument, 0, 0},
 	[IDX_SSID_FILTER] = {"ssid-filter", required_argument, 0, 0},
+	[IDX_SSID_FILTER_NEG] = {"ssid-filter-neg", optional_argument, 0, 0},
 	[IDX_NLM_FILTER] = {"nlm-filter", required_argument, 0, 0},
+	[IDX_NLM_FILTER_NEG] = {"nlm-filter-neg", optional_argument, 0, 0},
 	[IDX_NLM_LIST] = {"nlm-list", optional_argument, 0, 0},
 #endif
 	[IDX_LAST] = {NULL, 0, NULL, 0},
@@ -2219,7 +2228,7 @@ static void WinSetIcon(void)
 #endif
 #endif
 
-enum {WF_TCP_IN, WF_UDP_IN, WF_TCP_OUT, WF_UDP_OUT, WF_ICMP_IN, WF_ICMP_OUT, WF_IPP_IN, WF_IPP_OUT, WF_RAW, WF_RAWF_PART, WF_RAWF_FILTER, GLOBAL_SSID_FILTER, GLOBAL_NLM_FILTER, WF_RAWF, WF_COUNT} t_wf_index;
+enum {WF_TCP_IN, WF_UDP_IN, WF_TCP_OUT, WF_UDP_OUT, WF_ICMP_IN, WF_ICMP_OUT, WF_IPP_IN, WF_IPP_OUT, WF_RAW, WF_RAWF_PART, WF_RAWF_FILTER, GLOBAL_SSID_FILTER, GLOBAL_SSID_FILTER_NEG, GLOBAL_NLM_FILTER, GLOBAL_NLM_FILTER_NEG, WF_RAWF, WF_COUNT} t_wf_index;
 int main(int argc, char **argv)
 {
 #ifdef __CYGWIN__
@@ -2843,6 +2852,9 @@ int main(int argc, char **argv)
 			}
 			params.filter_ssid_present = true;
 			break;
+		case IDX_FILTER_SSID_NEG:
+			dp->filter_ssid_neg = !optarg || atoi(optarg);
+			break;
 #endif
 		case IDX_IPSET:
 			if (bSkip) break;
@@ -3080,6 +3092,9 @@ int main(int argc, char **argv)
 				exit_clean(1);
 			}
 			break;
+		case IDX_SSID_FILTER_NEG:
+			hash_wf[GLOBAL_SSID_FILTER_NEG] = params.ssid_filter_neg = !optarg || atoi(optarg);
+			break;
 		case IDX_NLM_FILTER:
 			hash_wf[GLOBAL_NLM_FILTER] = hash_jen(optarg, strlen(optarg));
 			if (!parse_strlist(optarg, &params.nlm_filter))
@@ -3087,6 +3102,9 @@ int main(int argc, char **argv)
 				DLOG_ERR("strlist_add failed\n");
 				exit_clean(1);
 			}
+			break;
+		case IDX_NLM_FILTER_NEG:
+			hash_wf[GLOBAL_NLM_FILTER_NEG] = params.nlm_filter_neg = !optarg || atoi(optarg);
 			break;
 		case IDX_NLM_LIST:
 			if (!nlm_list(optarg && !strcmp(optarg, "all")))
