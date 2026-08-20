@@ -712,6 +712,7 @@ Specific parameters for nfqws2:
  --bind-fix6                            ; same as above for IPv6
  --fwmark=<int|0xHEX>                   ; mark bit to prevent looping. default = 0x40000000
  --filter-ssid=ssid1[,ssid2,ssid3,...]  ; profile filter: WiFi network name (SSID)
+ --filter-ssid-neg=[0|1]                ; profile filter: negate SSID filter
 ```
 
 Specific parameters for dvtws2:
@@ -744,7 +745,9 @@ Specific parameters for winws2:
  --wf-save=<filename>                   ; save the final complete WinDivert filter to a file
 LOGICAL NETWORK FILTER:
  --ssid-filter=ssid1[,ssid2,ssid3,...]  ; list of WiFi networks; interception is enabled only when connected to these, otherwise it is disabled.
+ --ssid-filter-neg=[0|1]                ; negate WiFi network filter
  --nlm-filter=net1[,net2,net3,...]      ; list of Network List Manager networks; interception is enabled only when connected to these, otherwise it is disabled.
+ --nlm-filter-neg=[0|1]                 ; negate NLM filter
  --nlm-list[=all]                       ; display a list of connected NLM networks. "all" shows all NLM networks.
 ```
 
@@ -914,6 +917,8 @@ Another way to address this-and not just for Wi-Fi-is by using the Network List 
 `--nlm-list[=all]` returns a list of GUIDs for connected networks (or all networks if the "all" value is specified). You then enter the comma-separated list of GUIDs into `--nlm-filter`.
 
 An NLM network is the result of the system detecting a connection to a specific network. You might connect to a router via Wi-Fi or Ethernet, but it will be recognized as the same network. To distinguish between networks, the system typically looks at the gateway's MAC address. NLM technology is interesting and useful, but unfortunately, adequate management tools were only available in Windows 7. In newer systems, you have to dig into PowerShell or the Registry to manually assign connections to the correct GUIDs if the system categorizes them incorrectly. Alternatively, you can simply use the list of GUIDs automatically assigned by the system.
+
+SSID/NLM filters can be negated in both systems.
 
 ## Server mode
 
