@@ -34,7 +34,7 @@ function luaexec(ctx, desync)
 	if not res then
 		error(ret)
 	else
-		return ret and ret or VERDICT_PASS -- older nfqws2 failed if desync function returned explicit nil
+		return ret or VERDICT_PASS -- older nfqws2 failed if desync function returned explicit nil
 	end
 end
 
