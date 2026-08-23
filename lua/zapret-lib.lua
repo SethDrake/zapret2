@@ -24,7 +24,6 @@ function luaexec(ctx, desync)
 		_G[fname], err = load(desync.arg.code, fname)
 		if not _G[fname] then
 			error(err)
-			return
 		end
 	end
 	-- allow dynamic code to access desync
