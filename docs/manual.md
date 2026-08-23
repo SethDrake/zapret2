@@ -2653,6 +2653,8 @@ function luaexec(ctx, desync)
 
 Пример : `--lua-desync=luaexec:code="desync.rnd=brandom(math.random(5,10))"`
 
+Функция может возвращать вердикт через return.
+
 ### pass
 
 ```

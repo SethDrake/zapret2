@@ -377,8 +377,9 @@ bool proto_check_ipv4(const uint8_t *data, size_t len)
 {
 	if (len < sizeof(struct ip)) return false;
 	if (((struct ip*)data)->ip_v!=4) return false;
+	uint16_t iplen = ntohs(((struct ip*)data)->ip_len);
 	uint8_t off = ((struct ip*)data)->ip_hl << 2;
-	return off>=sizeof(struct ip) && len>=off;
+	return off>=sizeof(struct ip) && iplen>=off && len>=off;
 }
 bool proto_check_ipv4_payload(const uint8_t *data, size_t len)
 {
@@ -559,7 +560,7 @@ void proto_dissect_l3l4(const uint8_t *data, size_t len, struct dissect *dis, bo
 	dis->data_pkt = data;
 	dis->len_pkt = len;
 
-	uint16_t iplen;
+	size_t iplen;
 
 	if (proto_check_ipv4(data, len) && (no_payload_check || proto_check_ipv4_payload(data, len)))
 	{

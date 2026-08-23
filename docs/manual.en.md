@@ -2493,6 +2493,8 @@ The code can address the `desync` table-it is temporarily assigned to a global v
 
 Example: `--lua-desync=luaexec:code="desync.rnd=brandom(math.random(5,10))"`
 
+Verdict can be returned using "return" statement.
+
 ### pass
 
 ```

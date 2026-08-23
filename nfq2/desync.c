@@ -814,20 +814,26 @@ static bool desync_get_result(uint8_t *verdict)
 		DLOG_ERR("desync function returned more than one result : %d\n", rescount);
 		goto err;
 	}
+	// absence of the return value or nil mean VERDICT_PASS
 	if (rescount)
 	{
-		if (!lua_isinteger(params.L, -1))
+		if (lua_isnil(params.L, -1))
+			*verdict = VERDICT_PASS;
+		else
 		{
-			DLOG_ERR("desync function returned non-int result\n");
-			goto err;
+			if (!lua_isinteger(params.L, -1))
+			{
+				DLOG_ERR("desync function returned non-int result\n");
+				goto err;
+			}
+			lua_Integer lv = lua_tointeger(params.L, -1);
+			if (lv & ~VERDICT_MASK_VALID_LUA)
+			{
+				DLOG_ERR("desync function returned bad int result\n");
+				goto err;
+			}
+			*verdict = (uint8_t)lv;
 		}
-		lua_Integer lv = lua_tointeger(params.L, -1);
-		if (lv & ~VERDICT_MASK_VALID_LUA)
-		{
-			DLOG_ERR("desync function returned bad int result\n");
-			goto err;
-		}
-		*verdict = (uint8_t)lv;
 	}
 	else
 		*verdict = VERDICT_PASS; // default result if function returns nothing

@@ -594,8 +594,9 @@ static int nfq_main(void)
 		DLOG_ERR("recv: recv=%zd errno %d\n", rd, e);
 		errno = e;
 		DLOG_PERROR("recv");
+		errno = e;
 		// do not fail on ENOBUFS
-	} while (e == ENOBUFS);
+	} while (errno == ENOBUFS);
 
 err:
 	res=1;
