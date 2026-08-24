@@ -2185,9 +2185,6 @@ static bool lua_reconstruct_tcphdr_options(lua_State *L, int idx, struct tcphdr 
 				switch(kind)
 				{
 					case TCP_KIND_END:
-						*data = kind; data++; left--; filled++;
-						lua_pop(L, 1);
-						break;
 					case TCP_KIND_NOOP:
 						*data = kind; data++; left--; filled++;
 						break;
